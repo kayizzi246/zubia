@@ -1,0 +1,20 @@
+# Dependencies and build output (web/ and mobile/ also have their own rules)
+node_modules/
+.next/
+.expo/
+dist/
+build/
+out/
+
+# Secrets: never commit real keys
+.env
+.env*.local
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
