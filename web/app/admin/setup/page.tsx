@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: "Create the tables",
-    body: "In your project open SQL Editor → New query. Paste everything from supabase/migrations/0001_init.sql and click Run. Do the same, in order, with 0002_contact_and_messages.sql and then supabase/seed.sql (the 12 sample listings).",
+    body: "In your project open SQL Editor → New query. Paste everything from supabase/migrations/0001_init.sql and click Run. Do the same, in order, with 0002_contact_and_messages.sql, 0003_photo_storage.sql and then supabase/seed.sql (the 12 sample listings).",
   },
   {
     title: "Add your keys",

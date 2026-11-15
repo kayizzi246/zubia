@@ -4,6 +4,7 @@ import { Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { startTransition, useActionState, useState } from "react";
 import { saveListing } from "@/app/admin/actions";
+import { PhotoUploader } from "./PhotoUploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -191,19 +192,13 @@ export function ListingForm({ listing }: { listing?: AdminListing }) {
         <Card>
           <CardHeader>
             <CardTitle className="font-display font-bold">Photos and location</CardTitle>
-            <CardDescription>Photo upload is coming. For now, paste one image link per line.</CardDescription>
+            <CardDescription>The first photo is the cover. Photos are enhanced automatically when uploaded.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field name="photos" error={err("photos")} label="Photo links" className="sm:col-span-2">
-              <Textarea
-                id="photos"
-                name="photos"
-                defaultValue={listing?.photos.join("\n")}
-                rows={3}
-                placeholder="/sample/house.svg"
-                className="bg-white font-mono text-sm"
-              />
-            </Field>
+            <div className="sm:col-span-2">
+              <PhotoUploader initial={listing?.photos ?? []} />
+              {err("photos") && <p className="mt-2 text-sm text-destructive">{err("photos")}</p>}
+            </div>
             {/* TODO(mapbox): pick the location by dropping a pin on a map. */}
             <Field name="lat" error={err("lat")} label="Latitude" hint="Optional, e.g. 0.3476">
               {text("lat", listing?.lat || "", { inputMode: "decimal" })}

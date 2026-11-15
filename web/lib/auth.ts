@@ -11,6 +11,19 @@ export interface AdminUser {
   role: UserRole;
 }
 
+/** The signed-in admin, or null. For Route Handlers, which answer with 401 instead of redirecting. */
+export async function getAdminOrNull(): Promise<AdminUser | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
+  if (profile?.role !== "admin") return null;
+  return { id: user.id, email: user.email ?? "", name: profile.full_name || user.email || "Admin", role: profile.role };
+}
+
 /**
  * The signed-in admin, or a redirect to the login page.
  * Call this at the top of every admin page AND every admin Server Action:

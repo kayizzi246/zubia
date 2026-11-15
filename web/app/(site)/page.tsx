@@ -49,7 +49,8 @@ export default async function HomePage() {
       <section className="relative overflow-hidden bg-primary-dark">
         <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-10 md:pb-20 md:pt-14 lg:grid-cols-[1fr_320px]">
           <div>
-            <h1 className="font-display text-3xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl">
+            {/* Manrope stops at 800; the thin stroke in the text colour gives a 900 (Black) look. */}
+            <h1 className="font-display text-3xl font-extrabold leading-[1.1] tracking-tight text-white [-webkit-text-stroke:0.035em_currentColor] [paint-order:stroke_fill] sm:text-4xl md:text-5xl">
               Homes. Rentals. Land.{" "}
               <span className="block text-sun">All of Uganda.</span>
             </h1>

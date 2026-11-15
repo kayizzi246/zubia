@@ -139,7 +139,7 @@ export async function saveListing(_prev: ActionResult | null, formData: FormData
   const bathrooms = type === "land" ? null : optionalNumber(formData.get("bathrooms"));
   const lat = optionalNumber(formData.get("lat"));
   const lng = optionalNumber(formData.get("lng"));
-  // TODO(supabase-storage): replace pasted URLs with photo uploads.
+  // Filled in by the PhotoUploader (one URL per line, cover first).
   const photos = String(formData.get("photos") ?? "")
     .split("\n")
     .map((p) => p.trim())
@@ -158,6 +158,9 @@ export async function saveListing(_prev: ActionResult | null, formData: FormData
   if (sellerPhoneInput && !sellerPhone) errors.sellerPhone = "Use a Ugandan number, e.g. 0772 123 456.";
   for (const [key, value] of Object.entries({ bedrooms, bathrooms, lat, lng })) {
     if (Number.isNaN(value)) errors[key] = "Enter a number or leave it empty.";
+  }
+  if (Number(formData.get("photosUploading") ?? 0) > 0) {
+    errors.photos = "Wait for the photos to finish uploading, then save.";
   }
   if (Object.keys(errors).length > 0) return fail("Please fix the highlighted fields.", errors);
 

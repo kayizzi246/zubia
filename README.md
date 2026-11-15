@@ -26,7 +26,7 @@ Open http://localhost:3000. Without a database it shows 12 **sample listings** (
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In **SQL Editor**, run these files in order:
-   `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_contact_and_messages.sql`, `supabase/seed.sql`.
+   `supabase/migrations/0001_init.sql`, `0002_contact_and_messages.sql`, `0003_photo_storage.sql`, then `supabase/seed.sql`.
 3. Copy `web/.env.example` to `web/.env.local` and fill in your Project URL, Publishable key and Secret key.
    `.env.local` is ignored by git, so your keys never reach GitHub.
 4. Create your user under **Authentication → Users**, then make it an admin:
@@ -47,5 +47,6 @@ The same steps are shown in the app at `/admin/setup`.
 
 - Fill in the `UGX [PRICE]` placeholders on `/pricing`.
 - Have a lawyer review `/terms` and `/privacy` (marked as drafts).
-- Mobile Money payments (Flutterwave), photo uploads, in-app chat, the mobile app screens.
+- Mobile Money payments (Flutterwave), in-app chat, the mobile app screens.
+- Optional paid AI photo enhancement: set `AI_IMAGE_PROVIDER` in `web/.env.local` (see `.env.example`).
 - Before launch, move map tiles from OpenStreetMap to a production tile provider (see `web/lib/map.ts`).
