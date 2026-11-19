@@ -154,20 +154,23 @@ export default async function HomePage() {
   return (
     <main className="flex-1 bg-white">
       {/*
-        Hero as a contained panel rather than a full-bleed band: it sits
-        in the same column and carries the same rounded corners and
-        ink-tinted shadow as the cards below, so the page reads as one
-        system instead of a poster with a site underneath it.
+        Hero as a full-bleed band. The photo runs edge to edge while the
+        words keep to the same 1500px column as every section below, so
+        the headline still lines up with "Recommended." rather than
+        drifting out to the screen edge on a wide monitor.
+
+        Shallow on purpose: the first listings should be reachable
+        without scrolling, and a taller poster only delays them.
       */}
-      <section className="mx-auto max-w-[1760px] px-4 pt-6">
-        <div className="relative isolate flex min-h-[440px] items-center overflow-hidden rounded-3xl shadow-[0_2px_4px_rgb(16_41_31/0.06),0_24px_56px_-16px_rgb(16_41_31/0.22)] md:min-h-[500px]">
+      <section>
+        <div className="relative isolate flex min-h-[320px] items-center overflow-hidden md:min-h-[380px]">
           <Image
             src="/sample/photos/house-1.webp"
             alt=""
             fill
             priority
             quality={90}
-            sizes="(min-width: 1792px) 1760px, 100vw"
+            sizes="100vw"
             className="-z-20 object-cover object-center"
           />
           {/*
@@ -181,7 +184,7 @@ export default async function HomePage() {
             className="absolute inset-0 -z-10 bg-ink/70 md:bg-transparent md:bg-linear-to-r md:from-ink/92 md:via-ink/72 md:via-48% md:to-transparent md:to-82%"
           />
 
-          <div className="w-full px-6 py-14 sm:px-10 md:px-14 md:py-16">
+          <div className="mx-auto w-full max-w-[1500px] px-4 py-10 md:py-12">
             {/*
               White, not mint: the scrim now opens up to show the photo,
               and mint needs ~90% ink behind it to clear 4.5:1 at 11px.
