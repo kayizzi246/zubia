@@ -48,6 +48,37 @@ const String _tileAgent = 'ug.zubia.app';
 /// Where the map looks when there is nothing to centre on yet.
 const LatLng _kampala = LatLng(0.3476, 32.5825);
 
+/// How much colour the map keeps: 0 is grey, 1 is OpenStreetMap's own
+/// palette. 0.3 leaves roads and water faintly readable and nothing
+/// else shouting.
+///
+/// Raw OSM tiles are bright — green parks, yellow trunk roads, pink
+/// motorways — and a green price pin lands on them invisibly. Muting
+/// the map is what lets the pins carry the only strong colour on the
+/// screen, which is how every property app does it.
+///
+/// Turn it up if you want more of the city legible; down for a quieter
+/// backdrop.
+const double _mapColour = 0.3;
+
+/// Lifts the muted tiles toward white so the sheet and the map do not
+/// read as two different greys stacked on each other.
+const double _mapLift = 18;
+
+/// The standard saturation matrix, with a brightness term in the last
+/// column. The luminance weights are the usual sRGB ones, so grey
+/// comes out neutral rather than tinted.
+ColorFilter get _mapFilter {
+  const lr = 0.213, lg = 0.715, lb = 0.072;
+  const s = _mapColour;
+  return ColorFilter.matrix(<double>[
+    lr + (1 - lr) * s, lg - lg * s, lb - lb * s, 0, _mapLift,
+    lr - lr * s, lg + (1 - lg) * s, lb - lb * s, 0, _mapLift,
+    lr - lr * s, lg - lg * s, lb + (1 - lb) * s, 0, _mapLift,
+    0, 0, 0, 1, 0,
+  ]);
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  WHERE THE WEB APP LIVES
 //
@@ -961,6 +992,25 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
                       _sheet(controller, mq.padding.bottom),
                 ),
 
+                // Required by OpenStreetMap's licence, not decoration:
+                // the data is theirs and has to be credited wherever
+                // the map is shown. Sits just above the sheet's lowest
+                // stop so it is never buried under it.
+                Positioned(
+                  left: 10,
+                  bottom: mq.size.height * 0.28 + 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _white.withOpacity(0.82),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('© OpenStreetMap',
+                        style: _txt(10, color: _mid, height: 1.2)),
+                  ),
+                ),
+
                 // Controls ride on top of the map, not in a bar above
                 // it: the map is the page, so nothing should push it
                 // down.
@@ -1018,7 +1068,16 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
         },
       ),
       children: [
-        TileLayer(urlTemplate: _tileUrl, userAgentPackageName: _tileAgent),
+        // The mute is applied to the tiles only, never to the whole
+        // map: filtering the pins too would wash the price green out
+        // along with everything else.
+        ColorFiltered(
+          colorFilter: _mapFilter,
+          child: TileLayer(
+            urlTemplate: _tileUrl,
+            userAgentPackageName: _tileAgent,
+          ),
+        ),
         MarkerLayer(
           markers: [
             for (final l in pins)

@@ -62,6 +62,30 @@ paid for by the megabyte. The map opens at one sensible zoom and the
 results sheet covers most of it on purpose, so an ordinary search
 fetches one screen of tiles and no more.
 
+**The attribution is not optional.** OpenStreetMap's licence requires
+the data to be credited wherever the map is shown, which is what the
+`© OpenStreetMap` chip above the sheet is for. If you move to another
+tile source, credit that one instead — do not simply delete it.
+
+### Tuning the map's colour
+
+Raw OSM tiles are bright: green parks, yellow trunk roads, pink
+motorways. A green price pin lands on them invisibly, so the tiles are
+muted through a saturation filter and the pins carry the only strong
+colour on the screen — which is how every property app does it.
+
+Two constants at the top of `search.dart` control it:
+
+```dart
+const double _mapColour = 0.3;  // 0 = grey, 1 = OSM's own palette
+const double _mapLift = 18;     // nudges the tiles toward white
+```
+
+Turn `_mapColour` up if you want more of the city legible, down for a
+quieter backdrop. The filter is applied to the tile layer only, never
+to the whole map — filtering the markers too would wash the price green
+out along with everything else.
+
 `cached_network_image` matters more than it looks: photos are the
 heaviest thing the app downloads, and data here is paid for by the
 megabyte. `flutter_secure_storage` is not interchangeable with
