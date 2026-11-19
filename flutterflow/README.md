@@ -47,6 +47,13 @@ that produce `Couldn't resolve the package …` if you skip them:
 - **`flutter_map` and `latlong2` both go in `ZubiaSearch`'s box.**
   latlong2 is not optional: flutter_map depends on it but does not
   re-export `LatLng`, so importing it directly needs its own entry.
+
+> **latlong2 must be imported with a prefix.** FlutterFlow's
+> `flutter_flow_util.dart` re-exports its own
+> `flutter_flow/lat_lng.dart`, which declares a *different* class also
+> called `LatLng`. A plain import makes the name ambiguous and every use
+> of it fails to compile. `search.dart` imports it `as ll` and writes
+> `ll.LatLng` throughout; keep it that way.
 - **`flutter_secure_storage` goes in `ZubiaProfile`'s box.** It is not
   interchangeable with `shared_preferences` — see §5.
 

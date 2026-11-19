@@ -17,7 +17,11 @@ import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+// Prefixed, and it has to be. FlutterFlow's flutter_flow_util.dart
+// re-exports its own flutter_flow/lat_lng.dart, which declares a
+// different class also called LatLng. Importing latlong2 plainly makes
+// the name ambiguous and the build fails on every use of it.
+import 'package:latlong2/latlong.dart' as ll;
 
 // ═══════════════════════════════════════════════════════════════
 //  DEPENDENCIES for this widget's box in FlutterFlow
@@ -46,7 +50,7 @@ const String _tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const String _tileAgent = 'ug.zubia.app';
 
 /// Where the map looks when there is nothing to centre on yet.
-const LatLng _kampala = LatLng(0.3476, 32.5825);
+const ll.LatLng _kampala = ll.LatLng(0.3476, 32.5825);
 
 /// How much colour the map keeps: 0 is grey, 1 is OpenStreetMap's own
 /// palette. 0.3 leaves roads and water faintly readable and nothing
@@ -506,11 +510,11 @@ class _Listing {
 
   /// Null when the listing has no usable coordinates, so it is simply
   /// left off the map rather than dropped at 0,0 in the Gulf of Guinea.
-  LatLng? get point {
+  ll.LatLng? get point {
     final a = lat, b = lng;
     if (a == null || b == null) return null;
     if (a == 0 && b == 0) return null;
-    return LatLng(a, b);
+    return ll.LatLng(a, b);
   }
 
   /// The server's own wording — "Boys' quarters", not the raw "bq".
@@ -851,7 +855,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   /// out until every pin in Kampala sat on top of the others.
   void _recentre() {
     if (!_mapReady) return;
-    final pts = _listings.map((l) => l.point).whereType<LatLng>().toList();
+    final pts = _listings.map((l) => l.point).whereType<ll.LatLng>().toList();
     if (pts.isEmpty) return;
 
     var lat = 0.0, lng = 0.0;
@@ -859,7 +863,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
       lat += p.latitude;
       lng += p.longitude;
     }
-    _map.move(LatLng(lat / pts.length, lng / pts.length), pts.length == 1 ? 15 : 12);
+    _map.move(ll.LatLng(lat / pts.length, lng / pts.length), pts.length == 1 ? 15 : 12);
   }
 
   /// Nothing waits on this: the filter sheet simply has fewer options
