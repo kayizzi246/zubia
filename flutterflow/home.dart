@@ -504,7 +504,14 @@ class _SavedStore extends ChangeNotifier {
 /// a search, switching tabs — happens in code below, so there is nothing
 /// to wire up in FlutterFlow. Drop it on a blank page and it works.
 class ZubiaHome extends StatefulWidget {
-  const ZubiaHome({super.key});
+  const ZubiaHome({super.key, this.width, this.height});
+
+  /// FlutterFlow fills these in from the canvas when "Width and Height"
+  /// is switched on. They are not something to wire up, but the
+  /// constructor has to accept them or saving fails with:
+  /// Parameter "width" not found.
+  final double? width;
+  final double? height;
 
   @override
   State<ZubiaHome> createState() => _ZubiaHomeState();
@@ -649,8 +656,8 @@ class _ZubiaHomeState extends State<ZubiaHome> {
         value: SystemUiOverlayStyle.dark
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: mq.size.width,
-          height: mq.size.height,
+          width: widget.width ?? mq.size.width,
+          height: widget.height ?? mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,

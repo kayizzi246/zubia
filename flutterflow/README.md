@@ -90,13 +90,37 @@ Leave that block alone. Everything below it is the widget.
 
 ### Parameters to declare: none
 
-The five page widgets take **no parameters at all**. Nothing to declare,
-no actions to wire up. Paste each one, drop it on a blank page at full
-size, and it works.
+The five page widgets take **no parameters** beyond `width` and
+`height`, which FlutterFlow fills in from the canvas itself. Nothing to
+declare, no actions to wire up. Paste each one, drop it on a blank page
+at full size, and it works.
 
-The one exception is `ZubiaGlassTabBar`, which takes a single
+The one exception is `ZubiaGlassTabBar`, which also takes a single
 `activeIndex` (Integer). The four pages build it in code and pass their
 own index, so you only declare it if FlutterFlow asks.
+
+> **Leave "Width and Height" switched on.** Every widget here accepts
+> `width` and `height` for exactly that reason. Switching it off, or
+> removing those two from the constructor, produces
+> `Parameter "width" not found.` when you save.
+
+### Replacing an earlier version of a widget
+
+FlutterFlow keeps the parameter list you declared last time and checks
+the new code against it. Pasting these files over an older version will
+fail to save until the stale entries are gone.
+
+In **Define Parameters**, delete everything except `activeIndex` — that
+means `savedCount`, `onHome`, `onSearch`, `onSaved`, `onProfile`,
+`onOpenSearch`, `onOpenListing`, `onHomeTap`, `onSearchTap`,
+`onSavedTap`, `onProfileTap`, `onBack`, `initialType` and `listingId`,
+wherever each appears. Keep `width` and `height`, and keep `activeIndex`
+on `ZubiaGlassTabBar` only.
+
+A dialog saying `Parameter "x" not found. Are you sure you want to save?`
+is naming a declaration you still need to delete. Cancel, remove it, and
+save again — saying "Yes, Save" leaves a declaration pointing at a
+constructor argument that no longer exists.
 
 ### How they reach each other, with no parameters
 

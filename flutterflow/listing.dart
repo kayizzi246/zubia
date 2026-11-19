@@ -552,7 +552,14 @@ class _SavedStore extends ChangeNotifier {
 /// Takes no parameters. It shows [zubiaListingId], which whichever page
 /// was tapped sets just before navigating here.
 class ZubiaListing extends StatefulWidget {
-  const ZubiaListing({super.key});
+  const ZubiaListing({super.key, this.width, this.height});
+
+  /// FlutterFlow fills these in from the canvas when "Width and Height"
+  /// is switched on. They are not something to wire up, but the
+  /// constructor has to accept them or saving fails with:
+  /// Parameter "width" not found.
+  final double? width;
+  final double? height;
 
   @override
   State<ZubiaListing> createState() => _ZubiaListingState();
@@ -630,8 +637,8 @@ class _ZubiaListingState extends State<ZubiaListing> {
         value: SystemUiOverlayStyle.light
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: mq.size.width,
-          height: mq.size.height,
+          width: widget.width ?? mq.size.width,
+          height: widget.height ?? mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,

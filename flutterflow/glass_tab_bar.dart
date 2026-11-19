@@ -70,7 +70,19 @@ Future<void> zubiaOpenTab(BuildContext context, int index) {
 }
 
 class ZubiaGlassTabBar extends StatefulWidget {
-  const ZubiaGlassTabBar({super.key, required this.activeIndex});
+  const ZubiaGlassTabBar({
+    super.key,
+    this.width,
+    this.height,
+    required this.activeIndex,
+  });
+
+  /// FlutterFlow fills these in from the canvas when "Width and Height"
+  /// is switched on for the widget. They are not something to wire up,
+  /// but the constructor has to accept them or saving the widget fails
+  /// with: Parameter "width" not found.
+  final double? width;
+  final double? height;
 
   /// The tab this page is: 0 Home, 1 Search, 2 Saved, 3 Profile.
   final int activeIndex;
@@ -234,8 +246,8 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
     // bar of the same size, so nothing jumps.
     if (!_booted) {
       return SizedBox(
-        width: double.infinity,
-        height: _barHeight,
+        width: widget.width,
+        height: widget.height ?? _barHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: _white.withOpacity(0.86),
@@ -255,7 +267,7 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
       // own on top of that.
       horizontalPadding: 0,
       verticalPadding: 0,
-      barHeight: _barHeight,
+      barHeight: widget.height ?? _barHeight,
 
       // Zubia green on the selection, ink on the rest. Set directly
       // rather than through a Theme override, because the bar takes
@@ -308,8 +320,8 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
 
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: double.infinity,
-        maxHeight: _barHeight,
+        maxWidth: widget.width ?? double.infinity,
+        maxHeight: widget.height ?? _barHeight,
       ),
       child: lg.LiquidGlassWidgets.wrap(
         brightnessResolver: Theme.maybeBrightnessOf,
