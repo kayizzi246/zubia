@@ -629,7 +629,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
               const SizedBox(height: 20),
               _Pressable(
                 scale: 0.98,
-                onTap: () => ZubiaHome.openTab(context, 1),
+                onTap: () => ZubiaSearch.openTab(context, 0),
                 child: Container(
                   height: 46,
                   padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -799,13 +799,11 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
                 blur: 26,
                 child: Row(
                   children: [
-                    _tab(Icons.home_outlined, 'Home', false, 0, 0),
-                    _tab(Icons.search_rounded, 'Search', false,
-                        1, 0),
-                    _tab(Icons.favorite_rounded, 'Saved', true, 2,
+                    _tab(Icons.search_rounded, 'Search', false, 0, 0),
+                    _tab(Icons.favorite_rounded, 'Saved', true, 1,
                         _SavedStore().ids.length),
                     _tab(Icons.person_outline_rounded, 'Profile', false,
-                        3, 0),
+                        2, 0),
                   ],
                 ),
               ),
@@ -827,7 +825,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                ZubiaHome.openTab(context, index);
+                ZubiaSearch.openTab(context, index);
               },
         child: Container(
           height: _tabBarHeight,

@@ -855,7 +855,7 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
               iconColor: _clay,
               title: 'Saved',
               sub: saved == 0 ? 'Tap ♥ on a listing' : '$saved on this phone',
-              onTap: () => ZubiaHome.openTab(context, 2),
+              onTap: () => ZubiaSearch.openTab(context, 1),
             ),
           ),
           const SizedBox(width: 8),
@@ -866,7 +866,7 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
               iconColor: _brand,
               title: 'Search',
               sub: 'Rentals, homes, land',
-              onTap: () => ZubiaHome.openTab(context, 1),
+              onTap: () => ZubiaSearch.openTab(context, 0),
             ),
           ),
         ],
@@ -1149,12 +1149,10 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
                 blur: 26,
                 child: Row(
                   children: [
-                    _tab(Icons.home_outlined, 'Home', false, 0, 0),
-                    _tab(Icons.search_rounded, 'Search', false,
-                        1, 0),
+                    _tab(Icons.search_rounded, 'Search', false, 0, 0),
                     _tab(Icons.favorite_border_rounded, 'Saved', false,
-                        2, _SavedStore().ids.length),
-                    _tab(Icons.person_rounded, 'Profile', true, 3, 0),
+                        1, _SavedStore().ids.length),
+                    _tab(Icons.person_rounded, 'Profile', true, 2, 0),
                   ],
                 ),
               ),
@@ -1176,7 +1174,7 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                ZubiaHome.openTab(context, index);
+                ZubiaSearch.openTab(context, index);
               },
         child: Container(
           height: _tabBarHeight,

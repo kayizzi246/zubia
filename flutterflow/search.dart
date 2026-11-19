@@ -16,6 +16,37 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+// ═══════════════════════════════════════════════════════════════
+//  DEPENDENCIES for this widget's box in FlutterFlow
+//
+//      flutter_map: ^8.3.2
+//      latlong2: ^0.10.1
+//
+//  latlong2 has to be listed as well: flutter_map depends on it but
+//  does not re-export LatLng, so importing it directly needs its own
+//  entry or the build fails on "Couldn't resolve the package".
+// ═══════════════════════════════════════════════════════════════
+
+/// Where the map gets its tiles.
+///
+/// OpenStreetMap's public tile servers are free and need no key, which
+/// is why they are here — but their usage policy is aimed at modest,
+/// non-commercial traffic. Before real users arrive, point this at your
+/// own tile source or a paid provider, or the tiles will be cut off.
+///
+/// Tiles are also the heaviest thing this app downloads. The map opens
+/// at a sensible zoom and the list sits over it precisely so that most
+/// people never load more than a screen's worth.
+const String _tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+/// Sent with every tile request, as OSM's policy asks.
+const String _tileAgent = 'ug.zubia.app';
+
+/// Where the map looks when there is nothing to centre on yet.
+const LatLng _kampala = LatLng(0.3476, 32.5825);
 
 // ═══════════════════════════════════════════════════════════════
 //  WHERE THE WEB APP LIVES
@@ -439,6 +470,18 @@ class _Listing {
   bool get titleChecked => json['titleChecked'] as bool? ?? false;
   bool? get selfContained => json['selfContained'] as bool?;
 
+  double? get lat => (json['lat'] as num?)?.toDouble();
+  double? get lng => (json['lng'] as num?)?.toDouble();
+
+  /// Null when the listing has no usable coordinates, so it is simply
+  /// left off the map rather than dropped at 0,0 in the Gulf of Guinea.
+  LatLng? get point {
+    final a = lat, b = lng;
+    if (a == null || b == null) return null;
+    if (a == 0 && b == 0) return null;
+    return LatLng(a, b);
+  }
+
   /// The server's own wording — "Boys' quarters", not the raw "bq".
   /// Falling back to the code with its underscores stripped would put
   /// "bq" on the card, which means nothing to anyone.
@@ -693,6 +736,32 @@ class ZubiaSearch extends StatefulWidget {
   ///     );
   static String openType = 'rent';
 
+  /// Opens one of the three tab pages, replacing the current one.
+  ///
+  /// A static on this class, not a top-level function: FlutterFlow's
+  /// `custom_code/widgets/index.dart` exports each file with
+  /// `show <WidgetName>`, so a widget class is the only thing another
+  /// custom widget can see. It lives on Search because Search is the
+  /// page the app opens on and is always present.
+  ///
+  /// `pushReplacement`, not `push`: tapping Search from Saved must land
+  /// on Search, not stack a second Search on top of it.
+  static Future<void> openTab(BuildContext context, int index) {
+    final Widget page = switch (index) {
+      1 => const ZubiaSaved(),
+      2 => const ZubiaProfile(),
+      _ => const ZubiaSearch(),
+    };
+    return Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, a, __, child) =>
+            FadeTransition(opacity: a, child: child),
+        transitionDuration: const Duration(milliseconds: 180),
+      ),
+    );
+  }
+
   /// FlutterFlow fills these in from the canvas when "Width and Height"
   /// is switched on. They are not something to wire up, but the
   /// constructor has to accept them or saving fails with:
@@ -707,7 +776,11 @@ class ZubiaSearch extends StatefulWidget {
 class _ZubiaSearchState extends State<ZubiaSearch> {
   late _Filters _filters = _Filters(type: ZubiaSearch.openType);
   final TextEditingController _query = TextEditingController();
-  final ScrollController _scroll = ScrollController();
+  final MapController _map = MapController();
+
+  /// Set once the map is built, so a result set that arrives first does
+  /// not try to move a map that is not there yet.
+  bool _mapReady = false;
 
   List<_Listing> _listings = const [];
   int _total = 0;
@@ -736,8 +809,26 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   @override
   void dispose() {
     _query.dispose();
-    _scroll.dispose();
+    _map.dispose();
     super.dispose();
+  }
+
+  /// Puts the map over whatever the search just returned.
+  ///
+  /// The centre is the average of the pins rather than a fitted
+  /// bounding box: one listing 200km away would otherwise zoom the map
+  /// out until every pin in Kampala sat on top of the others.
+  void _recentre() {
+    if (!_mapReady) return;
+    final pts = _listings.map((l) => l.point).whereType<LatLng>().toList();
+    if (pts.isEmpty) return;
+
+    var lat = 0.0, lng = 0.0;
+    for (final p in pts) {
+      lat += p.latitude;
+      lng += p.longitude;
+    }
+    _map.move(LatLng(lat / pts.length, lng / pts.length), pts.length == 1 ? 15 : 12);
   }
 
   /// Nothing waits on this: the filter sheet simply has fewer options
@@ -771,6 +862,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
         _total = (data['total'] as num?)?.toInt() ?? 0;
         _loading = false;
       });
+      _recentre();
     } on _ApiError catch (e) {
       if (!mounted) return;
       setState(() {
@@ -782,7 +874,6 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
   void _apply(_Filters next) {
     _filters = next;
-    if (_scroll.hasClients) _scroll.jumpTo(0);
     _load();
   }
 
@@ -852,14 +943,39 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
             backgroundColor: _bg,
             body: Stack(
               children: [
-                Column(
-                  children: [
-                    _searchBar(mq.padding.top),
-                    if (_filters.chips.isNotEmpty) _chipRow(),
-                    const Divider(height: 1, thickness: 1, color: _line),
-                    Expanded(child: _results(mq.padding.bottom)),
-                  ],
+                // The map fills the screen; the results sheet covers the
+                // bottom half of it and can be dragged up over the lot.
+                Positioned.fill(child: _mapView()),
+
+                // The sheet. Its lowest stop leaves the map readable,
+                // its highest covers it completely, so the same screen
+                // works for someone browsing an area and someone
+                // reading through a list.
+                DraggableScrollableSheet(
+                  initialChildSize: 0.55,
+                  minChildSize: 0.28,
+                  maxChildSize: 0.94,
+                  snap: true,
+                  snapSizes: const [0.28, 0.55, 0.94],
+                  builder: (context, controller) =>
+                      _sheet(controller, mq.padding.bottom),
                 ),
+
+                // Controls ride on top of the map, not in a bar above
+                // it: the map is the page, so nothing should push it
+                // down.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: Column(
+                    children: [
+                      _searchBar(mq.padding.top),
+                      if (_filters.chips.isNotEmpty) _chipRow(),
+                    ],
+                  ),
+                ),
+
                 if (!_pushed)
                   Positioned(
                     left: 16,
@@ -874,6 +990,107 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
       ),
     );
   }
+
+  // --- Map ---------------------------------------------------------------
+
+  Widget _mapView() {
+    final pins = _listings.where((l) => l.point != null).toList(growable: false);
+
+    return FlutterMap(
+      mapController: _map,
+      options: MapOptions(
+        initialCenter: _kampala,
+        initialZoom: 12,
+        minZoom: 5,
+        maxZoom: 18,
+        backgroundColor: _tile,
+        // Rotation is a nuisance on a property map: people spin it by
+        // accident with two fingers and cannot find north again.
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.pinchZoom |
+              InteractiveFlag.drag |
+              InteractiveFlag.doubleTapZoom |
+              InteractiveFlag.flingAnimation,
+        ),
+        onMapReady: () {
+          _mapReady = true;
+          _recentre();
+        },
+      ),
+      children: [
+        TileLayer(urlTemplate: _tileUrl, userAgentPackageName: _tileAgent),
+        MarkerLayer(
+          markers: [
+            for (final l in pins)
+              Marker(
+                point: l.point!,
+                width: 74,
+                height: 30,
+                child: _Press(
+                  scale: 0.9,
+                  onTap: () => _openListing(l.id),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _brand,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: _white, width: 1.5),
+                      boxShadow: _lift,
+                    ),
+                    // The price on the pin, not a dot. On a map of
+                    // rentals the number is the whole reason to look.
+                    child: Text(
+                      _shortUgx(l.priceUGX),
+                      style: _txt(12.5,
+                          weight: FontWeight.w700, color: _white, height: 1.1),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // --- The results sheet -------------------------------------------------
+
+  Widget _sheet(ScrollController controller, double safeBottom) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: _white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        boxShadow: [
+          BoxShadow(color: Color(0x1F0E1C16), blurRadius: 20, offset: Offset(0, -4)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _results(controller, safeBottom),
+    );
+  }
+
+  /// The grabber and the count, as the first item of the list, so the
+  /// whole sheet scrolls as one piece.
+  Widget _sheetHead() => Column(
+        children: [
+          Container(
+            width: 38,
+            height: 4,
+            margin: const EdgeInsets.only(top: 8, bottom: 10),
+            decoration: BoxDecoration(
+              color: _line,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text(
+            _loading
+                ? 'Searching…'
+                : '$_total ${_filters.type == 'rent' ? 'rentals' : 'listings'} available',
+            style: _title(17),
+          ),
+          const SizedBox(height: 14),
+        ],
+      );
 
   // --- Search bar --------------------------------------------------------
 
@@ -1012,76 +1229,84 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
   // --- Results -----------------------------------------------------------
 
-  Widget _results(double safeBottom) {
+  Widget _results(ScrollController controller, double safeBottom) {
     final bottom = _pushed ? safeBottom + 28 : safeBottom + _tabBarHeight + 28;
     final cardW = MediaQuery.sizeOf(context).width - _padH * 2;
 
+    // The sheet's own controller has to drive whatever scrolls inside
+    // it, or dragging the list will not drag the sheet.
     if (_loading) {
       return ListView.separated(
-        physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(_padH, 16, _padH, bottom),
-        itemCount: 3,
+        controller: controller,
+        padding: EdgeInsets.fromLTRB(_padH, 0, _padH, bottom),
+        itemCount: 4,
         separatorBuilder: (_, __) => const SizedBox(height: 26),
-        itemBuilder: (_, __) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Skeleton(cardW, cardW / 1.6, radius: 12),
-            const SizedBox(height: 12),
-            const _Skeleton(150, 20, radius: 6),
-            const SizedBox(height: 9),
-            const _Skeleton(210, 13, radius: 5),
-            const SizedBox(height: 7),
-            const _Skeleton(170, 13, radius: 5),
-          ],
-        ),
+        itemBuilder: (_, i) {
+          if (i == 0) return _sheetHead();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Skeleton(cardW, cardW / 1.6, radius: 12),
+              const SizedBox(height: 12),
+              const _Skeleton(150, 20, radius: 6),
+              const SizedBox(height: 9),
+              const _Skeleton(210, 13, radius: 5),
+              const SizedBox(height: 7),
+              const _Skeleton(170, 13, radius: 5),
+            ],
+          );
+        },
       );
     }
 
     if (_error != null) {
-      return _state(
-        icon: Icons.cloud_off_rounded,
-        iconBg: _clayPale,
-        iconColor: _clay,
-        title: "Couldn't load that",
-        body: _error!,
-        action: 'Try again',
-        onAction: _load,
+      return ListView(
+        controller: controller,
+        padding: EdgeInsets.only(bottom: bottom),
+        children: [
+          _sheetHead(),
+          _state(
+            icon: Icons.cloud_off_rounded,
+            iconBg: _clayPale,
+            iconColor: _clay,
+            title: "Couldn't load that",
+            body: _error!,
+            action: 'Try again',
+            onAction: _load,
+          ),
+        ],
       );
     }
 
     if (_listings.isEmpty) {
-      return _state(
-        icon: Icons.search_off_rounded,
-        iconBg: _brandPale,
-        iconColor: _brand,
-        title: 'No matches yet',
-        body: 'Try a higher budget, a different room type, or a nearby area.',
-        action: _filters.activeCount > 0 ? 'Clear filters' : null,
-        onAction: _filters.activeCount > 0
-            ? () => _apply(_Filters(type: _filters.type))
-            : null,
+      return ListView(
+        controller: controller,
+        padding: EdgeInsets.only(bottom: bottom),
+        children: [
+          _sheetHead(),
+          _state(
+            icon: Icons.search_off_rounded,
+            iconBg: _brandPale,
+            iconColor: _brand,
+            title: 'No matches yet',
+            body:
+                'Try a higher budget, a different room type, or a nearby area.',
+            action: _filters.activeCount > 0 ? 'Clear filters' : null,
+            onAction: _filters.activeCount > 0
+                ? () => _apply(_Filters(type: _filters.type))
+                : null,
+          ),
+        ],
       );
     }
 
     return ListView.separated(
-      controller: _scroll,
-      physics:
-          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      controller: controller,
       padding: EdgeInsets.fromLTRB(_padH, 0, _padH, bottom),
       itemCount: _listings.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: 26),
-      itemBuilder: (_, i) {
-        if (i == 0) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(0, 16, 0, 2),
-            child: Text(
-              '$_total ${_filters.type == 'rent' ? 'rentals' : 'listings'} available',
-              style: _title(17),
-            ),
-          );
-        }
-        return _card(_listings[i - 1]);
-      },
+      itemBuilder: (_, i) =>
+          i == 0 ? _sheetHead() : _card(_listings[i - 1]),
     );
   }
 
@@ -1291,13 +1516,12 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
           ),
           child: Row(
             children: [
-              _tab(Icons.home_outlined, Icons.home_rounded, 'Home', false, 0, 0),
-              _tab(Icons.search_rounded, Icons.search_rounded, 'Search', true, 1,
-                  0),
+              _tab(Icons.search_rounded, Icons.search_rounded, 'Search', true,
+                  0, 0),
               _tab(Icons.favorite_border_rounded, Icons.favorite_rounded,
-                  'Saved', false, 2, _SavedStore().ids.length),
+                  'Saved', false, 1, _SavedStore().ids.length),
               _tab(Icons.person_outline_rounded, Icons.person_rounded, 'Profile',
-                  false, 3, 0),
+                  false, 2, 0),
             ],
           ),
         ),
@@ -1320,7 +1544,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                ZubiaHome.openTab(context, index);
+                ZubiaSearch.openTab(context, index);
               },
         child: SizedBox(
           height: _tabBarHeight,

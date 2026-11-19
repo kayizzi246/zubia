@@ -8,7 +8,7 @@ A property marketplace for Uganda: homes for sale, rentals and land across Kampa
 |---|---|
 | `web/` | Website, admin area and the JSON API: Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, Drizzle |
 | `db/` | Database setup: Postgres schema and the README explaining it |
-| `flutterflow/` | Phone app: five FlutterFlow custom widgets, one per page. Each is self-contained and talks to `web/app/api/v1`. See [flutterflow/README.md](flutterflow/README.md). |
+| `flutterflow/` | Phone app: four FlutterFlow custom widgets, one per page. Each is self-contained and talks to `web/app/api/v1`. See [flutterflow/README.md](flutterflow/README.md). |
 | `mobile/` | **Obsolete.** An untouched Expo starter template - no Zubia screens were ever written in it. Safe to delete. |
 | `supabase/` | **Obsolete.** Kept only for reference; nothing reads it. Safe to delete. |
 

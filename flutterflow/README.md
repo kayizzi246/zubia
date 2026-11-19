@@ -7,15 +7,19 @@ listings, the same prices and the same move-in costs.
 
 | File | Widget class | What it is |
 |---|---|---|
-| `home.dart` | `ZubiaHome` | Hero, two rails, the three ways in |
-| `search.dart` | `ZubiaSearch` | Results, type chips, filter sheet with a live count |
+| `search.dart` | `ZubiaSearch` | **The page the app opens on.** Map, results sheet, filters |
 | `listing.dart` | `ZubiaListing` | One listing in full, with the enquiry form |
 | `saved.dart` | `ZubiaSaved` | The listings hearted on this phone |
 | `profile.dart` | `ZubiaProfile` | Sign-in, privacy, settings |
-| `glass_tab_bar.dart` | `ZubiaGlassTabBar` | The real liquid-glass tab bar the four tab pages share. See §7 |
 
-`glass_tab_bar.dart` is the one shared widget — paste it **first**, or the
-four tab pages will not compile.
+**Three tabs: Search, Saved, Profile.** Search leads, the way the big
+property apps do it — they have no "home" tab either, because the map
+and the search field *are* the home screen. Listing is reached by
+tapping a card, so it is a page but never a tab.
+
+Set `ZubiaSearch` on your initial FlutterFlow page. `ZubiaSearch` also
+hosts `openTab`, so it is the one widget the others depend on — paste it
+**first**, or the other pages will not compile.
 
 ---
 
@@ -30,24 +34,33 @@ the box of every widget that needs it.
 
 | Package | Used for | Needed by |
 |---|---|---|
-| `http` | every API call | all five pages |
-| `cached_network_image` | listing photos, cached on disk | home, search, listing, saved |
-| `shared_preferences` | the saved-listing ids | all five pages |
+| `http` | every API call | all four |
+| `cached_network_image` | listing photos, cached on disk | search, listing, saved |
+| `shared_preferences` | the saved-listing ids | all four |
+| `flutter_map: ^8.3.2` | the map on the landing page | **search only** |
+| `latlong2: ^0.10.1` | `LatLng` for the map | **search only** |
 | `flutter_secure_storage: ^9.2.2` | the session token | **profile only** |
-| `liquid_glass_widgets: ^1.18.0` | the real glass tab bar | **glass_tab_bar.dart only** |
 
-The first three usually resolve already. The last two are the ones that
-produce `Couldn't resolve the package …` if you skip them:
+The first three usually resolve already. The last three are the ones
+that produce `Couldn't resolve the package …` if you skip them:
 
+- **`flutter_map` and `latlong2` both go in `ZubiaSearch`'s box.**
+  latlong2 is not optional: flutter_map depends on it but does not
+  re-export `LatLng`, so importing it directly needs its own entry.
 - **`flutter_secure_storage` goes in `ZubiaProfile`'s box.** It is not
   interchangeable with `shared_preferences` — see §5.
-- **`liquid_glass_widgets` goes in `ZubiaGlassTabBar`'s box**, and only
-  if you want the shader-based bar. The four pages draw their own glass
-  bar and need no extra package at all, so you can skip that widget
-  entirely. See §7.
 
-`liquid_glass_widgets` needs **Flutter 3.41 or newer**. FlutterFlow 7.2
-ships Flutter 3.47.1, so it resolves.
+### Before real users: your own map tiles
+
+The map points at OpenStreetMap's public tile servers, which are free
+and need no key. Their usage policy is aimed at modest, non-commercial
+traffic, so **swap `_tileUrl` in `search.dart` for your own tile source
+or a paid provider before launch**, or the tiles will be cut off.
+
+Tiles are also the heaviest thing this app downloads, on connections
+paid for by the megabyte. The map opens at one sensible zoom and the
+results sheet covers most of it on purpose, so an ordinary search
+fetches one screen of tiles and no more.
 
 `cached_network_image` matters more than it looks: photos are the
 heaviest thing the app downloads, and data here is paid for by the
@@ -62,7 +75,7 @@ Each file opens with one line, just under the imports:
 const String _apiBase = 'http://localhost:3001';
 ```
 
-Change it in **all five files** — they must agree.
+Change it in **all four files** — they must agree.
 
 | Where the app runs | What `_apiBase` should be |
 |---|---|
@@ -107,9 +120,8 @@ The five page widgets take **no parameters** beyond `width` and
 declare, no actions to wire up. Paste each one, drop it on a blank page
 at full size, and it works.
 
-The one exception is `ZubiaGlassTabBar`, which also takes a single
-`activeIndex` (Integer). The four pages build it in code and pass their
-own index, so you only declare it if FlutterFlow asks.
+There are no exceptions: all four widgets take `width` and `height` and
+nothing else.
 
 > **Leave "Width and Height" switched on.** Every widget here accepts
 > `width` and `height` for exactly that reason. Switching it off, or
@@ -122,12 +134,11 @@ FlutterFlow keeps the parameter list you declared last time and checks
 the new code against it. Pasting these files over an older version will
 fail to save until the stale entries are gone.
 
-In **Define Parameters**, delete everything except `activeIndex` — that
-means `savedCount`, `onHome`, `onSearch`, `onSaved`, `onProfile`,
-`onOpenSearch`, `onOpenListing`, `onHomeTap`, `onSearchTap`,
-`onSavedTap`, `onProfileTap`, `onBack`, `initialType` and `listingId`,
-wherever each appears. Keep `width` and `height`, and keep `activeIndex`
-on `ZubiaGlassTabBar` only.
+In **Define Parameters**, delete everything except `width` and `height`
+— that means `activeIndex`, `savedCount`, `onHome`, `onSearch`,
+`onSaved`, `onProfile`, `onOpenSearch`, `onOpenListing`, `onHomeTap`,
+`onSearchTap`, `onSavedTap`, `onProfileTap`, `onBack`, `initialType` and
+`listingId`, wherever each appears.
 
 A dialog saying `Parameter "x" not found. Are you sure you want to save?`
 is naming a declaration you still need to delete. Cancel, remove it, and
@@ -150,9 +161,9 @@ So everything shared hangs off a class:
 
 | Member | Lives on | Set by | Read by |
 |---|---|---|---|
-| `ZubiaListing.openId` | `listing.dart` | Home, Search, Saved, before navigating | `ZubiaListing` on open |
-| `ZubiaSearch.openType` | `search.dart` | Home's hero pills and its three tiles | `ZubiaSearch` on open |
-| `ZubiaHome.openTab(context, i)` | `home.dart` | every tab bar | — |
+| `ZubiaListing.openId` | `listing.dart` | Search and Saved, before navigating | `ZubiaListing` on open |
+| `ZubiaSearch.openType` | `search.dart` | whoever opens a typed search | `ZubiaSearch` on open |
+| `ZubiaSearch.openTab(context, i)` | `search.dart` | every tab bar | — |
 
 ```dart
 ZubiaListing.openId = l.id;
@@ -161,11 +172,11 @@ Navigator.of(context).push(
 );
 ```
 
-`openTab` lives on `ZubiaHome` rather than on the tab bar because Home is
-always present, while `glass_tab_bar.dart` is optional. It uses
-`pushReplacement`, so tapping Home from Search lands on Home instead of
-stacking a second Home on top of it. Opening a listing uses a plain
-`push`, so the back button returns where you were.
+`openTab` lives on `ZubiaSearch` because Search is the page the app
+opens on and is always present. It uses `pushReplacement`, so tapping
+Search from Saved lands on Search instead of stacking a second Search on
+top of it. Opening a listing uses a plain `push`, so the back button
+returns where you were.
 
 ### The import header
 
@@ -276,46 +287,23 @@ forms would not.
 
 ---
 
-## 7. The real glass tab bar, which is optional
+## 7. The map and the results sheet
 
-**The four tab pages do not need this widget or its package.** Each one
-draws its own glass bar from `BackdropFilter` and a gradient rim. Paste
-the five pages, add nothing, and you have a working app.
+The landing page is a map with the results over it, the way the big
+property apps open.
 
-`glass_tab_bar.dart` is the upgrade. It draws the bar with
-`liquid_glass_widgets`, so the page genuinely bends and shines through
-it and the selection flows between tabs like liquid. To switch it on:
-
-1. add `liquid_glass_widgets: ^1.18.0` to that widget's Dependencies box
-2. paste `glass_tab_bar.dart` in as `ZubiaGlassTabBar`, with the single
-   `activeIndex` (Integer) parameter
-3. in each page's `_tabBar()`, replace the `_Glass(...)` call with
-   `const ZubiaGlassTabBar(activeIndex: N)` — N being that page's tab:
-   0 Home, 1 Search, 2 Saved, 3 Profile
-
-Each page carries that instruction as a comment above `_tabBar()`.
-
-Nothing references `ZubiaGlassTabBar` until you make step 3, which is
-deliberate: a page that merely *mentions* the class still needs it to
-compile, so the missing package would break all four pages rather than
-none.
-
-Three details worth knowing before you change it:
-
-- **Initialisation.** The package wants `LiquidGlassWidgets.initialize()`
-  in `main()` before `runApp()`, which FlutterFlow does not let you
-  edit. The widget loads the shaders lazily instead, behind a static
-  guard so four pages cannot start four loads. Until they are ready it
-  draws a plain bar of exactly the same size, so nothing jumps.
-- **The 260ms pause.** Tapping a tab flows the glass first and navigates
-  after. That wait is deliberate: FlutterFlow replaces the whole page on
-  navigation, so switching immediately would tear the bar down mid-flow
-  and the effect would never be seen.
-- **Padding.** The bar is told `horizontalPadding: 0, verticalPadding: 0`
-  and `barHeight: 56`, because the pages already position it 14 from
-  each edge and clear of the home indicator. Changing `barHeight` means
-  changing `_tabBarHeight` in all four pages too, or the last card will
-  sit under the glass.
+- **Pins carry the price**, not a dot. On a map of rentals the number is
+  the whole reason to look.
+- **The sheet snaps** to three stops: 28% leaves the map readable, 55%
+  is the default, 94% covers it for reading through a list. The same
+  screen serves someone browsing an area and someone comparing places.
+- **The map re-centres** on the average of the pins after each search,
+  not on a fitted bounding box: one listing 200km away would otherwise
+  zoom out until every pin in Kampala sat on top of the others.
+- **Rotation is off.** People spin a map by accident with two fingers
+  and then cannot find north again.
+- **A listing with no coordinates** is left off the map rather than
+  dropped at 0,0 in the Gulf of Guinea. It still appears in the list.
 
 ## 8. The design system
 
