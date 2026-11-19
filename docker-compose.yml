@@ -1,0 +1,38 @@
+# Zubia's database for local development: Postgres on its own.
+#
+#   docker compose up -d        start it
+#   docker compose logs -f db   watch it
+#   docker compose down         stop it (data is kept)
+#   docker compose down -v      stop it AND delete all data
+#
+# The migrations in db/migrations are applied automatically the first time
+# the volume is created, in filename order. To re-apply them from scratch,
+# run `docker compose down -v` and start again.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: zubia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zubia
+      POSTGRES_PASSWORD: zubia_dev_password
+      POSTGRES_DB: zubia
+      # Faster, deterministic text sorting, and the C locale avoids surprises
+      # when ordering Ugandan place names.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      # Host 5433 so it cannot collide with a Postgres already on 5432.
+      - "5433:5432"
+    volumes:
+      - zubia_db_data:/var/lib/postgresql/data
+      # Anything in here runs once, on first start of an empty volume.
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zubia -d zubia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  zubia_db_data:

@@ -3,7 +3,7 @@
 import { Heart, Home, MessageSquare, PlusSquare, Search, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ZubiaMark } from "@/components/admin/ZubiaMark";
+import { ZubiaLogo, ZubiaMark } from "@/components/brand/ZubiaLogo";
 
 const ITEMS = [
   { href: "/search", label: "Search", icon: Search },
@@ -56,9 +56,8 @@ export function AppRail() {
       </nav>
 
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-white px-3 md:hidden">
-        <Link href="/" className="flex items-center gap-1.5 font-display text-2xl font-extrabold text-primary">
-          <ZubiaMark className="size-7" />
-          zubia
+        <Link href="/" aria-label="Zubia home" className="flex items-center">
+          <ZubiaLogo markClassName="size-7" wordClassName="text-2xl" />
         </Link>
         <Link
           href="/saved"

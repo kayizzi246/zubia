@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { ZubiaMark } from "@/components/admin/ZubiaMark";
+import { ZubiaLogo } from "@/components/brand/ZubiaLogo";
 
 export default function NotFound() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-4 py-20 text-center">
-      <Link href="/" className="mb-8 flex items-center gap-2 font-display text-3xl font-extrabold text-primary">
-        <ZubiaMark className="size-9" />
-        zubia
+      <Link href="/" aria-label="Zubia home" className="mb-8 flex items-center">
+        <ZubiaLogo markClassName="size-10" wordClassName="text-3xl" />
       </Link>
       <p className="font-display text-6xl font-extrabold text-primary">404</p>
       <h1 className="mt-2 font-display text-2xl font-bold text-ink">We couldn&apos;t find that page</h1>

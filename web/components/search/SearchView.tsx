@@ -11,7 +11,7 @@ import {
   describeSearch,
   filtersToQuery,
   parseFilters,
-  SORT_OPTIONS,
+  sortOptionsFor,
   type SearchFilters,
   type SortKey,
 } from "@/lib/search";
@@ -22,7 +22,7 @@ import { FilterBar } from "./FilterBar";
 const ListingsMap = dynamic(() => import("./ListingsMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full items-center justify-center bg-[#e5ebe8] text-sm text-subtle">Loading map…</div>
+    <div className="flex h-full items-center justify-center bg-[#eef2f8] text-sm text-subtle">Loading map…</div>
   ),
 });
 
@@ -88,7 +88,7 @@ export function SearchView({ listings, filters }: SearchViewProps) {
                 onChange={(e) => update({ sort: e.target.value as SortKey })}
                 className="h-11 cursor-pointer rounded-lg bg-transparent pr-1 font-semibold text-primary"
               >
-                {SORT_OPTIONS.map((s) => (
+                {sortOptionsFor(filters.type).map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
                   </option>
@@ -99,8 +99,18 @@ export function SearchView({ listings, filters }: SearchViewProps) {
 
           {results.length === 0 ? (
             <div className="rounded-card border border-line bg-surface p-8 text-center">
-              <p className="font-semibold text-ink">No matching listings</p>
-              <p className="mt-1 text-sm text-subtle">Try removing a filter or searching a nearby area.</p>
+              <p className="font-semibold text-ink">Nothing matches yet</p>
+              <p className="mt-1 text-sm text-subtle">
+                {filters.type === "rent"
+                  ? // Name the filter most likely to be the cause, rather
+                    // than leaving someone to guess which one to loosen.
+                    filters.selfContained
+                      ? "Self-contained rooms are fewer and cost more. Try turning that off, or look at a nearby area."
+                      : filters.maxMoveIn
+                        ? "Try raising the money you can put down, or look at a nearby area."
+                        : "Try a different room type, a higher budget, or a nearby area."
+                  : "Try removing a filter or searching a nearby area."}
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">

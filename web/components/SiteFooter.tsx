@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ZubiaLogo } from "@/components/brand/ZubiaLogo";
 import { getPublicListings } from "@/lib/data/listings";
 import { DISTRICTS } from "@/lib/search";
 
@@ -215,15 +216,8 @@ export async function SiteFooter() {
 
         {/* Logo, socials, copyright */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 py-8">
-          <Link
-            href="/"
-            className="flex items-center gap-1 font-display text-2xl font-bold text-primary"
-          >
-            <svg viewBox="0 0 32 32" className="size-6" aria-hidden="true">
-              <path d="M4 15 16 5l12 10v13H4z" fill="#0B6B4F" />
-              <path d="M11 28v-8h10v8" fill="#F2B705" />
-            </svg>
-            zubia
+          <Link href="/" aria-label="Zubia home" className="flex items-center">
+            <ZubiaLogo markClassName="size-7" wordClassName="text-2xl" tagline />
           </Link>
           {SOCIALS.length > 0 && (
           <div className="flex items-center gap-1">

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = { title: "Inbox | Zubia" };
 
-// TODO(supabase): in-app chat between buyers and sellers.
+// TODO(db): in-app chat between buyers and sellers.
 export default function InboxPage() {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-16 text-center">

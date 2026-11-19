@@ -1,7 +1,7 @@
 "use client";
 
 // Saved searches, kept in this browser only.
-// TODO(supabase): store per user and send WhatsApp/email alerts when a new
+// TODO(db): store per user and send WhatsApp/email alerts when a new
 // listing matches.
 
 import { useSyncExternalStore } from "react";

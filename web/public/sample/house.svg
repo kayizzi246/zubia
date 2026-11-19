@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Sample photo: house">
-  <rect width="800" height="600" fill="#E6EFEA"/>
-  <rect y="430" width="800" height="170" fill="#CFE0D6"/>
-  <path d="M250 300 L400 190 L550 300 Z" fill="#0B6B4F"/>
+  <rect width="800" height="600" fill="#EEF4FD"/>
+  <rect y="430" width="800" height="170" fill="#D6E4F7"/>
+  <path d="M250 300 L400 190 L550 300 Z" fill="#1A6B4A"/>
   <rect x="275" y="300" width="250" height="160" fill="#FFFFFF"/>
-  <rect x="380" y="370" width="40" height="90" fill="#0B3D2E"/>
-  <rect x="300" y="330" width="50" height="40" fill="#F2B705"/>
-  <rect x="450" y="330" width="50" height="40" fill="#F2B705"/>
-  <text x="28" y="572" text-anchor="start" font-family="sans-serif" font-size="26" fill="#4E5A54">Sample photo</text>
+  <rect x="380" y="370" width="40" height="90" fill="#10291F"/>
+  <rect x="300" y="330" width="50" height="40" fill="#74CCA4"/>
+  <rect x="450" y="330" width="50" height="40" fill="#74CCA4"/>
+  <text x="28" y="572" text-anchor="start" font-family="sans-serif" font-size="26" fill="#7D7C7C">Sample photo</text>
 </svg>

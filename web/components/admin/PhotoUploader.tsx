@@ -100,7 +100,7 @@ export function PhotoUploader({ initial }: { initial: string[] }) {
                     <img src={src} alt={`Photo ${index + 1}`} className="size-full object-cover" />
                   )}
                   {index === 0 && it.status === "done" && (
-                    <span className="absolute left-2 top-2 rounded bg-sun px-1.5 py-0.5 text-[11px] font-bold text-ink">Cover</span>
+                    <span className="absolute left-2 top-2 rounded bg-primary-dark px-1.5 py-0.5 text-[11px] font-bold text-white">Cover</span>
                   )}
                   {it.status === "uploading" && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/75 text-sm font-medium">

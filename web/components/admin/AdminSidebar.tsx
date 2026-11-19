@@ -18,24 +18,30 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { ZubiaMark } from "./ZubiaMark";
+import { ZubiaMark } from "@/components/brand/ZubiaLogo";
+import { ROLE_LABELS, type Permission } from "@/lib/permissions";
+import type { UserRole } from "@/lib/db/rows";
 
-const NAV = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/listings", label: "Listings", icon: Home },
-  { href: "/admin/listings/new", label: "Add listing", icon: Plus },
-  { href: "/admin/messages", label: "Messages", icon: Inbox },
-  { href: "/admin/users", label: "Users & admins", icon: Users },
+// Each link names the permission it needs; the sidebar hides the ones this
+// admin can't use. The pages check again on the server.
+const NAV: { href: string; label: string; icon: typeof Home; needs: Permission }[] = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, needs: "listings.view" },
+  { href: "/admin/listings", label: "Listings", icon: Home, needs: "listings.view" },
+  { href: "/admin/listings/new", label: "Add listing", icon: Plus, needs: "listings.manage" },
+  { href: "/admin/messages", label: "Messages", icon: Inbox, needs: "messages.manage" },
+  { href: "/admin/users", label: "Users & admins", icon: Users, needs: "users.view" },
 ];
 
 interface AdminSidebarProps {
-  admin: { name: string; email: string };
+  admin: { name: string; email: string; role: UserRole; allowed: Permission[] };
 }
 
 export function AdminSidebar({ admin }: AdminSidebarProps) {
   const pathname = usePathname();
+  const nav = NAV.filter((item) => admin.allowed.includes(item.needs));
   // Most specific match wins, so "Add listing" doesn't also light up "Listings".
-  const active = NAV.map((n) => n.href)
+  const active = nav
+    .map((n) => n.href)
     .filter((href) => pathname === href || (href !== "/admin" && pathname.startsWith(href + "/")))
     .sort((a, b) => b.length - a.length)[0];
 
@@ -56,9 +62,9 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
                 <span className="flex size-8 items-center justify-center rounded-lg bg-white">
                   <ZubiaMark className="size-6" />
                 </span>
-                <span className="font-display text-xl font-extrabold text-white">zubia</span>
+                <span className="font-display text-xl font-bold text-white">Zubia</span>
                 <span className="ml-auto rounded bg-sidebar-primary px-1.5 py-0.5 text-[10px] font-bold uppercase text-sidebar-primary-foreground">
-                  Admin
+                  {ROLE_LABELS[admin.role].replace(" admin", "")}
                 </span>
               </Link>
             </SidebarMenuButton>
@@ -71,7 +77,7 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
           <SidebarGroupLabel className="text-sidebar-foreground/60">Manage</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild

@@ -38,7 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { AdminListing } from "@/lib/supabase/rows";
+import type { AdminListing } from "@/lib/db/rows";
 
 function useRun() {
   const [pending, startTransition] = useTransition();

@@ -1,9 +1,10 @@
 import "server-only";
+import { desc, eq } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
+import { db, isDatabaseConfigured } from "@/lib/db";
+import { rowToListing } from "@/lib/db/rows";
+import { listings } from "@/lib/db/schema";
 import { SAMPLE_LISTINGS } from "@/lib/sample-listings";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { rowToListing, type ListingRow } from "@/lib/supabase/rows";
-import { createPublicClient } from "@/lib/supabase/server";
 import type { Listing } from "@/lib/types";
 
 /** Tag the admin uses to refresh public pages after a change. */
@@ -16,27 +17,35 @@ export async function getPublicListing(id: string): Promise<Listing | undefined>
 
 /**
  * Approved listings for the public site. Cached so pages stay static and
- * fast; the admin refreshes the cache whenever a listing changes.
- * Falls back to sample data until Supabase is connected.
+ * fast, which matters a great deal on a slow Ugandan connection; the admin
+ * refreshes the cache whenever a listing changes.
+ *
+ * Falls back to sample data until DATABASE_URL is set, so the site runs
+ * straight after a clone.
  */
 export async function getPublicListings(): Promise<Listing[]> {
   "use cache";
   cacheTag(LISTINGS_TAG);
   cacheLife("hours");
 
-  if (!isSupabaseConfigured()) return SAMPLE_LISTINGS;
+  if (!isDatabaseConfigured()) return SAMPLE_LISTINGS;
 
-  const { data, error } = await createPublicClient()
-    .from("listings")
-    .select("*")
-    .eq("status", "approved")
-    .order("featured", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(500); // TODO: paginate once there are more listings.
+  try {
+    const rows = await db
+      .select()
+      .from(listings)
+      .where(eq(listings.status, "approved"))
+      .orderBy(desc(listings.featured), desc(listings.createdAt))
+      .limit(500); // TODO: paginate once there are more listings.
 
-  if (error) {
-    console.error("Could not load listings from Supabase:", error.message);
+    return rows.map(rowToListing);
+  } catch (error) {
+    // A database that is down must not take the whole site with it. An empty
+    // list renders the "nothing matches" state instead of a crash.
+    console.error(
+      "Could not load listings from Postgres:",
+      error instanceof Error ? error.message : error,
+    );
     return [];
   }
-  return (data as ListingRow[]).map(rowToListing);
 }

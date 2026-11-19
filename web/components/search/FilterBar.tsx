@@ -11,11 +11,13 @@ import {
   DISTRICTS,
   filtersToQuery,
   LISTING_TYPES,
+  MOVE_IN_STEPS,
   PRICE_STEPS,
   SELLER_TYPES,
   type SearchFilters,
 } from "@/lib/search";
-import type { ListingType, SellerType, Tenure } from "@/lib/types";
+import type { ListingType, SellerType, Tenure, UnitType } from "@/lib/types";
+import { UNIT_LABELS, UNIT_LOCAL_NAMES, UNIT_NOTES, UNIT_TYPES } from "@/lib/uganda";
 
 interface FilterBarProps {
   filters: SearchFilters;
@@ -104,13 +106,17 @@ function Segmented<T extends string | number | null>({
   );
 }
 
-/** A list of choices shown as stacked radio-style buttons. */
+/**
+ * A list of choices shown as stacked radio-style buttons. An option can
+ * carry a `hint`, used to show the local word for a room type ("muzigo")
+ * under its English label.
+ */
 function ChoiceList<T extends string | null>({
   options,
   value,
   onPick,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; hint?: string }[];
   value: T;
   onPick: (v: T) => void;
 }) {
@@ -123,16 +129,21 @@ function ChoiceList<T extends string | null>({
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onPick(o.value)}
-          className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm text-ink hover:bg-surface"
+          className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-surface"
         >
           <span
-            className={`flex size-5 items-center justify-center rounded-full border-2 ${
+            className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
               value === o.value ? "border-primary" : "border-line"
             }`}
           >
             {value === o.value && <span className="size-2.5 rounded-full bg-primary" />}
           </span>
-          {o.label}
+          <span className="min-w-0">
+            <span className="block font-medium">{o.label}</span>
+            {o.hint && (
+              <span className="block text-xs text-subtle">{o.hint}</span>
+            )}
+          </span>
         </button>
       ))}
     </div>
@@ -155,6 +166,17 @@ export function FilterBar({ filters, onChange, onClear }: FilterBarProps) {
   const [draft, setDraft] = useState(filters.q);
   const steps = PRICE_STEPS[filters.type];
   const isLand = filters.type === "land";
+  const isRent = filters.type === "rent";
+
+  // What the "Room type" button says once something is picked, e.g.
+  // "Single room · Self-contained".
+  const roomLabel = filters.unit
+    ? [UNIT_LABELS[filters.unit], filters.selfContained && "Self-contained"]
+        .filter(Boolean)
+        .join(" · ")
+    : filters.selfContained
+      ? "Self-contained"
+      : "Room type";
 
   const priceLabel =
     filters.minPrice && filters.maxPrice
@@ -170,15 +192,31 @@ export function FilterBar({ filters, onChange, onClear }: FilterBarProps) {
       ? [filters.beds && `${filters.beds}+ bd`, filters.baths && `${filters.baths}+ ba`].filter(Boolean).join(", ")
       : "Beds & baths";
 
-  const moreCount = [filters.district, filters.seller, filters.titleChecked].filter(Boolean).length;
+  const moreCount = [
+    filters.district,
+    filters.seller,
+    !isRent && filters.titleChecked,
+  ].filter(Boolean).length;
   const hasAnyFilter =
-    moreCount > 0 || filters.minPrice || filters.maxPrice || filters.beds || filters.baths || filters.tenure || filters.q;
+    moreCount > 0 ||
+    filters.minPrice ||
+    filters.maxPrice ||
+    filters.beds ||
+    filters.baths ||
+    filters.tenure ||
+    filters.unit ||
+    filters.selfContained ||
+    filters.maxMoveIn ||
+    filters.q;
 
   function handleSave() {
     const query = filtersToQuery(filters);
-    const label = [describeSearch(filters), priceLabel !== "Price" && priceLabel, bedsLabel !== "Beds & baths" && bedsLabel]
-      .filter(Boolean)
-      .join(" · ");
+    // For a rental the room type is already in describeSearch, so the
+    // extra detail worth keeping is the price, not the bed count.
+    const detail = isRent
+      ? [priceLabel !== "Price" && priceLabel]
+      : [priceLabel !== "Price" && priceLabel, bedsLabel !== "Beds & baths" && bedsLabel];
+    const label = [describeSearch(filters), ...detail].filter(Boolean).join(" · ");
     if (saveSearch(query, label)) {
       toast.success("Search saved", { description: "Find it any time under Saved homes." });
     } else {
@@ -235,8 +273,18 @@ export function FilterBar({ filters, onChange, onClear }: FilterBarProps) {
         <ChoiceList
           options={LISTING_TYPES.map((t) => ({ value: t.value, label: TYPE_BUTTON_LABELS[t.value] }))}
           value={filters.type}
-          // Price steps differ by type, so reset prices when it changes.
-          onPick={(type) => onChange({ type, minPrice: null, maxPrice: null })}
+          // Price steps differ by type, and the room-type filters only
+          // apply to rentals, so clear all of them when the type changes.
+          onPick={(type) =>
+            onChange({
+              type,
+              minPrice: null,
+              maxPrice: null,
+              unit: null,
+              selfContained: false,
+              maxMoveIn: null,
+            })
+          }
         />
       </FilterButton>
 
@@ -273,10 +321,88 @@ export function FilterBar({ filters, onChange, onClear }: FilterBarProps) {
             </select>
           </div>
         </Section>
+
+        {/*
+          The monthly rent is not what stops people moving. The lump sum
+          does: advance plus deposit plus any broker fee is commonly three
+          to four months' rent in Kampala. Letting people filter on the
+          money they can actually raise is the point of this filter.
+        */}
+        {isRent && (
+          <Section title="Money you can raise to move in">
+            <select
+              aria-label="Maximum move-in cost"
+              value={filters.maxMoveIn ?? ""}
+              onChange={(e) =>
+                onChange({ maxMoveIn: Number(e.target.value) || null })
+              }
+              className={selectClass}
+            >
+              <option value="">Any amount</option>
+              {MOVE_IN_STEPS.map((p) => (
+                <option key={p} value={p}>
+                  Up to UGX {formatPriceShort(p)}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs leading-relaxed text-subtle">
+              Advance rent, the security deposit and any broker fee added
+              together. This is the cash you need before you get the keys.
+            </p>
+          </Section>
+        )}
       </FilterButton>
 
-      {/* Beds & baths (not for land) */}
-      {!isLand && (
+      {/*
+        Room type. This replaces beds-and-baths for rentals, because
+        someone renting in Uganda asks "single room or double room, and is
+        it self-contained?" rather than counting bathrooms.
+      */}
+      {isRent && (
+        <FilterButton label={roomLabel} active={roomLabel !== "Room type"} width="w-80">
+          <Section title="What kind of place?">
+            <ChoiceList<UnitType | null>
+              options={[
+                { value: null, label: "Any kind" },
+                ...UNIT_TYPES.map((u) => ({
+                  value: u,
+                  label: UNIT_LABELS[u],
+                  hint: UNIT_LOCAL_NAMES[u],
+                })),
+              ]}
+              value={filters.unit}
+              onPick={(unit) => onChange({ unit })}
+            />
+          </Section>
+
+          {filters.unit && (
+            <p className="mt-3 rounded-lg bg-surface p-3 text-xs leading-relaxed text-subtle">
+              {UNIT_NOTES[filters.unit]}
+            </p>
+          )}
+
+          <Section title="Toilet and shower">
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-1 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={filters.selfContained}
+                onChange={(e) => onChange({ selfContained: e.target.checked })}
+                className="mt-0.5 size-5 accent-primary"
+              />
+              <span>
+                <span className="block font-medium">Self-contained only</span>
+                <span className="block text-xs text-subtle">
+                  The toilet and shower are inside your own unit, not shared
+                  with the yard.
+                </span>
+              </span>
+            </label>
+          </Section>
+        </FilterButton>
+      )}
+
+      {/* Beds & baths stays for buying, where room counts are how people shop. */}
+      {!isLand && !isRent && (
         <FilterButton label={bedsLabel} active={bedsLabel !== "Beds & baths"} width="w-96">
           <Section title="Bedrooms">
             <Segmented options={COUNT_OPTIONS} value={filters.beds} onPick={(beds) => onChange({ beds })} />
@@ -287,17 +413,23 @@ export function FilterBar({ filters, onChange, onClear }: FilterBarProps) {
         </FilterButton>
       )}
 
-      {/* Tenure, Uganda's version of "property type" */}
-      <FilterButton label={filters.tenure ? TENURE_LABELS[filters.tenure] : "Tenure"} active={!!filters.tenure} width="w-64">
-        <ChoiceList<Tenure | null>
-          options={[
-            { value: null, label: "Any tenure" },
-            ...(Object.keys(TENURE_LABELS) as Tenure[]).map((t) => ({ value: t, label: TENURE_LABELS[t] })),
-          ]}
-          value={filters.tenure}
-          onPick={(tenure) => onChange({ tenure })}
-        />
-      </FilterButton>
+      {/*
+        Tenure is what you check before buying land. A tenant renting a
+        room does not care whether the plot is mailo or freehold, so this
+        is left out of the rental search to keep it short.
+      */}
+      {!isRent && (
+        <FilterButton label={filters.tenure ? TENURE_LABELS[filters.tenure] : "Tenure"} active={!!filters.tenure} width="w-64">
+          <ChoiceList<Tenure | null>
+            options={[
+              { value: null, label: "Any tenure" },
+              ...(Object.keys(TENURE_LABELS) as Tenure[]).map((t) => ({ value: t, label: TENURE_LABELS[t] })),
+            ]}
+            value={filters.tenure}
+            onPick={(tenure) => onChange({ tenure })}
+          />
+        </FilterButton>
+      )}
 
       {/* More filters */}
       <FilterButton
@@ -330,22 +462,25 @@ export function FilterBar({ filters, onChange, onClear }: FilterBarProps) {
             <option value="">Anyone</option>
             {SELLER_TYPES.map((s) => (
               <option key={s.value} value={s.value}>
-                {s.label}
+                {/* On a rental the owner is the landlord. */}
+                {isRent && s.value === "owner" ? "Landlord" : s.label}
               </option>
             ))}
           </select>
         </Section>
-        <Section title="Land title">
-          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-1 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={filters.titleChecked}
-              onChange={(e) => onChange({ titleChecked: e.target.checked })}
-              className="size-5 accent-primary"
-            />
-            Only show listings with a checked title
-          </label>
-        </Section>
+        {!isRent && (
+          <Section title="Land title">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-1 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={filters.titleChecked}
+                onChange={(e) => onChange({ titleChecked: e.target.checked })}
+                className="size-5 accent-primary"
+              />
+              Only show listings with a checked title
+            </label>
+          </Section>
+        )}
         {hasAnyFilter && (
           <button
             type="button"

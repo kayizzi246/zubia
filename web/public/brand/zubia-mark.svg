@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Zubia">
+  <!-- chimney, drawn first so the right roof face overlaps it cleanly -->
+  <path d="M44 16h8v24h-8z" fill="#004BBB"/>
+  <!-- left roof face -->
+  <path d="M32 8v15L16 40H2z" fill="#1A6B4A"/>
+  <!-- right roof face -->
+  <path d="M32 8l30 32H48L32 23z" fill="#004BBB"/>
+  <!-- window -->
+  <g fill="#1A6B4A">
+    <rect x="26.8" y="29.5" width="4.6" height="4.6"/>
+    <rect x="32.6" y="29.5" width="4.6" height="4.6"/>
+    <rect x="26.8" y="35.3" width="4.6" height="4.6"/>
+    <rect x="32.6" y="35.3" width="4.6" height="4.6"/>
+  </g>
+</svg>

@@ -1,4 +1,10 @@
 import type { Listing, Tenure } from "./types";
+import {
+  BATHROOM_LABELS,
+  listingMoveInTotal,
+  UNIT_LABELS,
+  UNIT_LOCAL_NAMES,
+} from "./uganda";
 
 /** 450000000 -> "UGX 450M", 2500000 -> "UGX 2.5M", 850000 -> "UGX 850K" */
 export function formatPriceUGX(amount: number): string {
@@ -20,6 +26,30 @@ export function formatPriceShort(amount: number): string {
 export function formatListingPrice(listing: Listing): string {
   const price = formatPriceUGX(listing.priceUGX);
   return listing.type === "rent" ? `${price}/month` : price;
+}
+
+/**
+ * "Single room (muzigo)" for a rental, so the local word is right there.
+ * Returns null for anything that isn't a rental with a unit type set.
+ */
+export function formatUnitType(listing: Listing): string | null {
+  if (!listing.unitType) return null;
+  const label = UNIT_LABELS[listing.unitType];
+  const local = UNIT_LOCAL_NAMES[listing.unitType];
+  return local ? `${label} (${local})` : label;
+}
+
+/** "Self-contained" / "Shared toilet", or null if the listing doesn't say. */
+export function formatBathroom(listing: Listing): string | null {
+  return listing.bathroom ? BATHROOM_LABELS[listing.bathroom] : null;
+}
+
+/**
+ * "UGX 800K to move in". The number a tenant has to raise before they get
+ * the keys, which matters more day to day than the monthly rent.
+ */
+export function formatMoveIn(listing: Listing): string {
+  return `${formatPriceUGX(listingMoveInTotal(listing))} to move in`;
 }
 
 export const TENURE_LABELS: Record<Tenure, string> = {

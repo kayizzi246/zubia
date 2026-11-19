@@ -5,6 +5,16 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { requireAdmin } from "@/lib/auth";
+import { can, type Permission } from "@/lib/permissions";
+
+const ALL_PERMISSIONS: Permission[] = [
+  "listings.view",
+  "listings.manage",
+  "messages.manage",
+  "users.view",
+  "users.manage",
+  "admins.manage",
+];
 
 // Admin pages read the login cookie, so they render per request.
 export const instant = false;
@@ -23,14 +33,26 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AdminSidebar admin={{ name: admin.name, email: admin.email }} />
+        <AdminSidebar
+          admin={{
+            name: admin.name,
+            email: admin.email,
+            role: admin.role,
+            allowed: ALL_PERMISSIONS.filter((p) => can(admin.role, p)),
+          }}
+        />
         <SidebarInset className="bg-surface">
           <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-white px-4">
             <SidebarTrigger className="size-10" />
             <Separator orientation="vertical" className="mr-1 h-5" />
             <span className="text-sm text-muted-foreground">Zubia admin</span>
           </header>
-          <div className="mx-auto w-full max-w-7xl p-4 md:p-6">{children}</div>
+          {/*
+            Full width, not a centred 1280px column: beside a 256px
+            sidebar on a wide screen that left a gap between the two, and
+            a dashboard has tables and charts that want the room.
+          */}
+          <div className="w-full p-4 md:p-6">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

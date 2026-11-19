@@ -1,28 +1,32 @@
 import { CheckCircle2, Database } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ZubiaMark } from "@/components/admin/ZubiaMark";
+import { ZubiaLogo } from "@/components/brand/ZubiaLogo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isDatabaseConfigured } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Connect the database" };
 
 const STEPS = [
   {
-    title: "Create a free Supabase project",
-    body: "Go to supabase.com, sign up (no card needed) and click New project. Pick the region closest to Uganda and save the database password somewhere safe.",
+    title: "Start Postgres",
+    body: "In the repo root run: docker compose up -d. That starts Postgres on port 5433 and creates all the tables from db/migrations/001_schema.sql the first time. If you already have your own Postgres, skip this and point DATABASE_URL at it, then run that SQL file by hand.",
   },
   {
-    title: "Create the tables",
-    body: "In your project open SQL Editor → New query. Paste everything from supabase/migrations/0001_init.sql and click Run. Do the same, in order, with 0002_contact_and_messages.sql, 0003_photo_storage.sql and then supabase/seed.sql (the 12 sample listings).",
+    title: "Point the app at it",
+    body: "In the web folder, copy .env.example to .env.local. The DATABASE_URL already in there matches docker-compose.yml, so for local development there is nothing to change.",
   },
   {
-    title: "Add your keys",
-    body: "Open Project Settings → API Keys. In the web folder, copy .env.example to .env.local and paste the Project URL, the Publishable key and the Secret key.",
+    title: "Add the sample listings (optional)",
+    body: "Run: npm run db:seed. That loads the 40 sample listings, including single rooms, double rooms and bedsitters, so you have something to look at. Safe to run again later.",
   },
   {
     title: "Create your admin account",
-    body: "Open Authentication → Users → Add user → Create new user. Enter your email and a strong password and tick Auto Confirm. Then in SQL Editor run: update public.profiles set role = 'admin' where email = 'you@example.com';",
+    body: 'Run: npm run db:create-admin -- you@example.com "Your Name". It prints a password once. That account is a super admin, so afterwards you can invite the rest of the team from Users & admins instead of using the command line again.',
+  },
+  {
+    title: "Set up photo storage",
+    body: "Listing photos go to Cloudflare R2 (or any S3-compatible storage). Create a bucket and an API token with Object Read & Write, then fill in the R2_ values in .env.local. Until you do, everything works except uploading photos.",
   },
   {
     title: "Restart and sign in",
@@ -31,13 +35,15 @@ const STEPS = [
 ];
 
 export default function SetupPage() {
-  const connected = isSupabaseConfigured();
+  const connected = isDatabaseConfigured();
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12">
       <div className="mb-6 flex items-center gap-2">
-        <ZubiaMark />
-        <span className="font-display text-2xl font-extrabold text-primary">zubia admin</span>
+        <ZubiaLogo markClassName="size-8" wordClassName="text-2xl" />
+        <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary">
+          Admin
+        </span>
       </div>
       <Card>
         <CardHeader>
@@ -47,8 +53,8 @@ export default function SetupPage() {
           </CardTitle>
           <CardDescription>
             {connected
-              ? "Your keys are set. If you haven't yet, finish steps 2 and 4, then sign in."
-              : "The admin needs a Supabase database. Until it's connected, the public site keeps showing sample listings."}
+              ? "DATABASE_URL is set. If you haven't yet, run the seed and create your admin account, then sign in."
+              : "The admin needs a Postgres database. Until DATABASE_URL is set, the public site keeps showing sample listings."}
           </CardDescription>
         </CardHeader>
         <CardContent>

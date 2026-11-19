@@ -2,9 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TextPage } from "@/components/TextPage";
 import { TENURE_LABELS, TENURE_NOTES } from "@/lib/format";
-import type { Tenure } from "@/lib/types";
+import type { Bathroom, Tenure, UnitType } from "@/lib/types";
+import {
+  BATHROOM_LABELS,
+  BATHROOM_NOTES,
+  UNIT_LABELS,
+  UNIT_LOCAL_NAMES,
+  UNIT_NOTES,
+  UNIT_TYPES,
+  VIEWING_FEE_WARNING,
+} from "@/lib/uganda";
 
-export const metadata: Metadata = { title: "Help and buying tips | Zubia" };
+export const metadata: Metadata = { title: "Help, renting and buying tips | Zubia" };
 
 const FAQS = [
   {
@@ -63,11 +72,73 @@ export default function HelpPage() {
       <h2>Renting safely</h2>
       <ul>
         <li>View the house before paying anything, and meet the landlord or their known agent.</li>
+        <li>{VIEWING_FEE_WARNING}</li>
         <li>Get a written tenancy agreement with the rent, deposit and notice period.</li>
-        <li>Keep receipts for every payment.</li>
+        <li>Keep receipts for every payment, including the deposit.</li>
+        <li>
+          In Uganda the landlord normally pays the broker&apos;s commission.
+          If a broker asks you for a month&apos;s rent as their fee, ask why.
+        </li>
       </ul>
 
+      {/*
+        The words used in rental adverts are not written down anywhere, so
+        anybody renting for the first time has to learn them by being
+        caught out. This glossary is the same vocabulary the search uses.
+      */}
+      <h2>Types of rooms and houses to rent</h2>
+      <dl className="space-y-3">
+        {UNIT_TYPES.map((u: UnitType) => (
+          <div key={u}>
+            <dt className="font-semibold">
+              {UNIT_LABELS[u]}
+              {UNIT_LOCAL_NAMES[u] && (
+                <span className="font-normal text-subtle">
+                  {" "}
+                  &mdash; {UNIT_LOCAL_NAMES[u]}
+                </span>
+              )}
+            </dt>
+            <dd className="text-subtle">{UNIT_NOTES[u]}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <h2>Self-contained, or shared?</h2>
+      <p>
+        This is the question to settle before you travel to see a place. It
+        decides whether you walk across a yard at night and who else uses
+        your shower.
+      </p>
+      <dl className="space-y-3">
+        {(Object.keys(BATHROOM_LABELS) as Bathroom[]).map((b) => (
+          <div key={b}>
+            <dt className="font-semibold">{BATHROOM_LABELS[b]}</dt>
+            <dd className="text-subtle">{BATHROOM_NOTES[b]}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <h2>What it costs to move in</h2>
+      <p>
+        The monthly rent is not the number that stops people moving. Before
+        you get the keys a landlord normally asks for rent in advance plus a
+        refundable security deposit, so the cash you need is commonly three
+        to four months&apos; rent in one go. Every rental on Zubia shows that
+        total in shillings, broken down, so you can work out what you can
+        afford before you spend money on transport to a viewing.
+      </p>
+      <p>
+        One or two months in advance is usual. If somebody asks for three to
+        six, that is not automatically wrong, but ask for a lower monthly
+        rent in exchange and get the agreement in writing.
+      </p>
+
       <h2>Types of tenure</h2>
+      <p className="text-subtle">
+        These matter when you are buying land or a house. If you are renting
+        a room you can skip this part.
+      </p>
       <dl className="space-y-3">
         {(Object.keys(TENURE_NOTES) as Tenure[]).map((t) => (
           <div key={t}>

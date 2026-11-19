@@ -40,7 +40,7 @@ export default function LocationMap({ lat, lng }: { lat: number; lng: number }) 
   }, [lat, lng]);
 
   return (
-    <div className="relative isolate h-64 overflow-hidden rounded-card bg-[#e5ebe8] md:h-80">
+    <div className="relative isolate h-64 overflow-hidden rounded-card bg-[#eef2f8] md:h-80">
       <div ref={ref} className="h-full w-full" />
     </div>
   );

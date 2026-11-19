@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { getAdminListings } from "@/lib/data/admin";
 import { formatListingPrice, TENURE_LABELS } from "@/lib/format";
-import type { ListingStatus } from "@/lib/supabase/rows";
+import type { ListingStatus } from "@/lib/db/rows";
 
 export const metadata: Metadata = { title: "Listings" };
 
@@ -138,7 +138,7 @@ export default async function AdminListingsPage({ searchParams }: PageProps<"/ad
                   <div className="flex gap-1.5 text-muted-foreground">
                     {listing.featured && (
                       <span title="Featured">
-                        <Star className="size-4 fill-sun text-sun" />
+                        <Star className="size-4 fill-primary text-primary" />
                         <span className="sr-only">Featured</span>
                       </span>
                     )}

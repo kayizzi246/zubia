@@ -4,13 +4,30 @@ import { notFound } from "next/navigation";
 import { ListingCard } from "@/components/ListingCard";
 import { getPublicListing, getPublicListings } from "@/lib/data/listings";
 import {
+  formatBathroom,
   formatListingPrice,
   formatPhone,
+  formatPriceUGX,
   formatSize,
+  formatUnitType,
   TENURE_LABELS,
   TENURE_NOTES,
 } from "@/lib/format";
 import type { Listing, SellerType } from "@/lib/types";
+import {
+  BATHROOM_NOTES,
+  isSelfContained,
+  listingMoveInTerms,
+  listingMoveInTotal,
+  moveInBreakdown,
+  moveInWarnings,
+  POWER_LABELS,
+  rentVersusTypical,
+  UNIT_LABELS,
+  UNIT_NOTES,
+  VIEWING_FEE_WARNING,
+  WATER_LABELS,
+} from "@/lib/uganda";
 import { ContactButtons } from "./ContactButtons";
 import { ContactQr } from "./ContactQr";
 import { LocationMapLoader } from "./LocationMapLoader";
@@ -67,7 +84,16 @@ export async function ListingDetails({ id, variant = "page" }: { id: string; var
       <div className="mx-auto mt-6 grid max-w-6xl gap-8 px-4 lg:grid-cols-[1fr_360px]">
         <div className="min-w-0 space-y-8">
           <Summary listing={listing} />
-          <TenurePanel listing={listing} />
+          {/*
+            A renter needs to know what the move-in cash is. A buyer needs
+            to know about the land title. They are different panels because
+            they are different decisions.
+          */}
+          {listing.type === "rent" ? (
+            <MoveInPanel listing={listing} />
+          ) : (
+            <TenurePanel listing={listing} />
+          )}
           <section>
             <h2 className="mb-2 font-display text-xl font-bold text-ink">About this place</h2>
             <p className="whitespace-pre-line leading-relaxed text-ink">{listing.description}</p>
@@ -86,7 +112,7 @@ export async function ListingDetails({ id, variant = "page" }: { id: string; var
 
         <aside className={`space-y-4 lg:sticky lg:self-start ${variant === "page" ? "lg:top-20" : "lg:top-4"}`}>
           <SellerCard listing={listing} />
-          <SafetyTips listingId={listing.id} />
+          <SafetyTips listingId={listing.id} isRent={listing.type === "rent"} />
         </aside>
       </div>
 
@@ -113,11 +139,19 @@ export async function ListingDetails({ id, variant = "page" }: { id: string; var
 }
 
 function Summary({ listing }: { listing: Listing }) {
-  const facts = [
-    listing.bedrooms !== null && { value: listing.bedrooms, label: listing.bedrooms === 1 ? "bed" : "beds" },
-    listing.bathrooms !== null && { value: listing.bathrooms, label: listing.bathrooms === 1 ? "bath" : "baths" },
-    { value: formatSize(listing.sizeDecimals).split(" ")[0], label: formatSize(listing.sizeDecimals).split(" ").slice(1).join(" ") },
-  ].filter(Boolean) as { value: string | number; label: string }[];
+  const isRent = listing.type === "rent";
+  const unitLabel = formatUnitType(listing);
+  const bathroomLabel = formatBathroom(listing);
+
+  // Plot size and bathroom counts are a buyer's measures. Someone renting
+  // a room is told what the unit is and where the bathroom is instead.
+  const facts = isRent
+    ? []
+    : ([
+        listing.bedrooms !== null && { value: listing.bedrooms, label: listing.bedrooms === 1 ? "bed" : "beds" },
+        listing.bathrooms !== null && { value: listing.bathrooms, label: listing.bathrooms === 1 ? "bath" : "baths" },
+        { value: formatSize(listing.sizeDecimals).split(" ")[0], label: formatSize(listing.sizeDecimals).split(" ").slice(1).join(" ") },
+      ].filter(Boolean) as { value: string | number; label: string }[]);
 
   return (
     <section>
@@ -125,7 +159,15 @@ function Summary({ listing }: { listing: Listing }) {
         <div>
           <div className="mb-2 flex flex-wrap gap-2">
             <span className="rounded-md bg-surface px-2 py-1 text-xs font-semibold text-ink">{TYPE_LABELS[listing.type]}</span>
-            {listing.featured && <span className="rounded-md bg-sun px-2 py-1 text-xs font-semibold text-ink">Featured</span>}
+            {isRent && unitLabel && (
+              <span className="rounded-md bg-surface px-2 py-1 text-xs font-semibold text-ink">{unitLabel}</span>
+            )}
+            {isRent && isSelfContained(listing.bathroom) && (
+              <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                {bathroomLabel}
+              </span>
+            )}
+            {listing.featured && <span className="rounded-md bg-primary-dark px-2 py-1 text-xs font-semibold text-white">Featured</span>}
           </div>
           <p className="font-display text-4xl font-extrabold tracking-tight text-ink">{formatListingPrice(listing)}</p>
           <h1 className="mt-1 text-lg text-ink">
@@ -149,6 +191,124 @@ function Summary({ listing }: { listing: Listing }) {
   );
 }
 
+/**
+ * What this place costs to move into, itemised.
+ *
+ * Guides for Kampala tell tenants to budget three to four months' rent
+ * before they get the keys, and the surprise is usually discovered at the
+ * viewing. Putting the arithmetic on the page means someone can decide
+ * whether to make the trip at all.
+ */
+function MoveInPanel({ listing }: { listing: Listing }) {
+  const terms = listingMoveInTerms(listing);
+  const total = listingMoveInTotal(listing);
+  const rows = moveInBreakdown(listing.priceUGX, terms);
+  const warnings = moveInWarnings(terms);
+  const typical = rentVersusTypical(listing.unitType, listing.priceUGX);
+
+  return (
+    <section className="space-y-3">
+      <div className="rounded-card border border-primary/30 bg-primary/5 p-4">
+        <p className="text-sm text-subtle">Cash needed before you move in</p>
+        <p className="font-display text-3xl font-extrabold tracking-tight text-primary">
+          {formatPriceUGX(total)}
+        </p>
+        <p className="mt-1 text-sm text-ink">
+          That is {formatPriceUGX(listing.priceUGX)} a month, plus what the
+          landlord asks for up front.
+        </p>
+
+        <dl className="mt-4 space-y-2 border-t border-primary/20 pt-3">
+          {rows.map((row) => (
+            <div key={row.label}>
+              <div className="flex justify-between gap-4 text-sm">
+                <dt className="text-ink">
+                  {row.label}
+                  {row.months > 0 && (
+                    <span className="text-subtle">
+                      {" "}
+                      ({row.months} {row.months === 1 ? "month" : "months"})
+                    </span>
+                  )}
+                </dt>
+                <dd className="shrink-0 font-semibold text-ink">
+                  {row.amountUGX === 0 ? "Nothing" : formatPriceUGX(row.amountUGX)}
+                </dd>
+              </div>
+              {row.note && (
+                <p className="mt-0.5 text-xs leading-relaxed text-subtle">
+                  {row.note}
+                </p>
+              )}
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="rounded-card border border-warning/40 bg-warning-tint p-4">
+          <p className="flex items-center gap-1.5 font-semibold text-ink">
+            <AlertTriangle className="size-5 text-[#9a7200]" /> Worth asking about
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
+            {warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/*
+        A reference point for the rent. Somebody renting their first room
+        has no way of knowing whether 400,000 is fair for a single room, so
+        state the usual range and let them judge.
+      */}
+      {typical && listing.unitType && (
+        <div className="rounded-card border border-line p-4">
+          <p className="text-sm text-subtle">Is this a fair rent?</p>
+          <p className="mt-1 text-sm text-ink">
+            A {UNIT_LABELS[listing.unitType].toLowerCase()} around Kampala
+            usually goes for {formatPriceUGX(typical.low)} to{" "}
+            {formatPriceUGX(typical.high)} a month.{" "}
+            {typical.verdict === "high"
+              ? "This one is above that range, so there is room to negotiate, or something here is better than usual."
+              : typical.verdict === "low"
+                ? "This one is below that range. Check why it is cheap before you pay: ask about water, power and the state of the toilet."
+                : "This one is inside that range."}
+          </p>
+          <p className="mt-1 text-xs text-subtle">
+            A rough guide only. The area, and whether the unit is
+            self-contained, change the price a lot.
+          </p>
+        </div>
+      )}
+
+      {listing.bathroom && (
+        <div className="rounded-card border border-line p-4">
+          <p className="text-sm text-subtle">Toilet and shower</p>
+          <p className="font-display text-xl font-bold text-ink">
+            {formatBathroom(listing)}
+          </p>
+          <p className="mt-1 text-sm text-subtle">
+            {BATHROOM_NOTES[listing.bathroom]}
+          </p>
+        </div>
+      )}
+
+      {listing.unitType && (
+        <div className="rounded-card border border-line p-4">
+          <p className="text-sm text-subtle">
+            What a {UNIT_LABELS[listing.unitType].toLowerCase()} means
+          </p>
+          <p className="mt-1 text-sm text-ink">
+            {UNIT_NOTES[listing.unitType]}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function TenurePanel({ listing }: { listing: Listing }) {
   return (
     <section className="grid gap-3 sm:grid-cols-2">
@@ -167,7 +327,7 @@ function TenurePanel({ listing }: { listing: Listing }) {
           </p>
         </div>
       ) : (
-        <div className="rounded-card border border-sun/50 bg-sun/10 p-4">
+        <div className="rounded-card border border-warning/40 bg-warning-tint p-4">
           <p className="flex items-center gap-1.5 font-display text-xl font-bold text-ink">
             <AlertTriangle className="size-5 text-[#9a7200]" /> Title not checked yet
           </p>
@@ -181,16 +341,49 @@ function TenurePanel({ listing }: { listing: Listing }) {
 }
 
 function FactsTable({ listing }: { listing: Listing }) {
+  const isRent = listing.type === "rent";
+  const row = (k: string, v: string): [string, string] => [k, v];
+
+  // Water and power are daily running costs in Uganda, and a shared meter
+  // or no connection at all changes what the place really costs. They
+  // belong in the facts, not buried in the description.
+  const rentalRows: [string, string][] = isRent
+    ? [
+        ...(listing.unitType ? [row("Room type", UNIT_LABELS[listing.unitType])] : []),
+        ...(listing.bathroom ? [row("Toilet and shower", formatBathroom(listing)!)] : []),
+        ...(listing.ownKitchen != null
+          ? [row("Kitchen", listing.ownKitchen ? "Own kitchen" : "No separate kitchen")]
+          : []),
+        ...(listing.water ? [row("Water", WATER_LABELS[listing.water])] : []),
+        ...(listing.power ? [row("Electricity", POWER_LABELS[listing.power])] : []),
+        ...(listing.fenced != null
+          ? [row("Compound", listing.fenced ? "Fenced with a gate" : "Open compound")]
+          : []),
+      ]
+    : [];
+
   const rows: [string, string][] = [
-    ["Type", TYPE_LABELS[listing.type]],
-    ["Tenure", TENURE_LABELS[listing.tenure]],
-    ["Plot size", `${formatSize(listing.sizeDecimals)}${listing.sizeDecimals >= 100 ? ` (${listing.sizeDecimals} decimals)` : ""}`],
-    ...(listing.bedrooms !== null ? [["Bedrooms", String(listing.bedrooms)] as [string, string]] : []),
-    ...(listing.bathrooms !== null ? [["Bathrooms", String(listing.bathrooms)] as [string, string]] : []),
-    ["Area", listing.area],
-    ["District", listing.district],
-    ["Listed by", SELLER_LABELS[listing.sellerType]],
-    ["Listing ID", listing.id],
+    row("Type", TYPE_LABELS[listing.type]),
+    ...rentalRows,
+    // Tenure and plot size are what you check before buying land.
+    ...(isRent
+      ? []
+      : [
+          row("Tenure", TENURE_LABELS[listing.tenure]),
+          row(
+            "Plot size",
+            `${formatSize(listing.sizeDecimals)}${listing.sizeDecimals >= 100 ? ` (${listing.sizeDecimals} decimals)` : ""}`,
+          ),
+          ...(listing.bedrooms !== null ? [row("Bedrooms", String(listing.bedrooms))] : []),
+          ...(listing.bathrooms !== null ? [row("Bathrooms", String(listing.bathrooms))] : []),
+        ]),
+    row("Area", listing.area),
+    row("District", listing.district),
+    row(
+      "Listed by",
+      isRent && listing.sellerType === "owner" ? "Landlord" : SELLER_LABELS[listing.sellerType],
+    ),
+    row("Listing ID", listing.id),
   ];
   return (
     <section>
@@ -223,23 +416,41 @@ function SellerCard({ listing }: { listing: Listing }) {
   );
 }
 
-function SafetyTips({ listingId }: { listingId: string }) {
+/**
+ * The traps are different for renting and buying: a renter loses money to
+ * viewing fees and advance rent paid to someone who isn't the landlord, a
+ * buyer loses it to a bad title. Show the right list.
+ */
+function SafetyTips({ listingId, isRent }: { listingId: string; isRent: boolean }) {
+  const tips = isRent
+    ? [
+        "See the actual room before you pay anything, and meet the landlord.",
+        VIEWING_FEE_WARNING,
+        "Get a written tenancy agreement saying the rent, the deposit and how you get the deposit back.",
+        "Ask for a receipt for every payment, including the deposit.",
+      ]
+    : [
+        "Visit the property before paying anything.",
+        "Search the title at the land registry.",
+        'Never send a "booking fee" by Mobile Money to a stranger.',
+      ];
+
   return (
     <div className="rounded-card bg-surface p-5">
       <p className="flex items-center gap-2 font-semibold text-ink">
         <ShieldAlert className="size-5 text-primary" /> Stay safe
       </p>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
-        <li>Visit the property before paying anything.</li>
-        <li>Search the title at the land registry.</li>
-        <li>Never send a &quot;booking fee&quot; by Mobile Money to a stranger.</li>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-ink">
+        {tips.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
       </ul>
       <div className="mt-3 flex flex-wrap gap-x-4">
         <Link href={`/contact?topic=report&listing=${listingId}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
           <Flag className="size-4" /> Report this listing
         </Link>
         <Link href="/help" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
-          <CircleHelp className="size-4" /> Buying tips
+          <CircleHelp className="size-4" /> {isRent ? "Renting tips" : "Buying tips"}
         </Link>
       </div>
     </div>

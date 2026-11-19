@@ -1,7 +1,7 @@
 "use server";
 
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createPublicClient } from "@/lib/supabase/server";
+import { db, isDatabaseConfigured } from "@/lib/db";
+import { contactMessages } from "@/lib/db/schema";
 
 export interface ContactResult {
   ok: boolean;
@@ -36,27 +36,52 @@ export async function sendContactMessage(_prev: ContactResult | null, formData: 
 
   if (plan) message = `[Plan: ${plan}] ${message}`;
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return {
       ok: false,
       message: "Messages aren't connected yet (the database isn't set up). Please try again later.",
     };
   }
 
-  const supabase = createPublicClient();
-  const row = { topic, name, email: email || null, phone: phone || null, listing_id: listingId, message };
-  let { error } = await supabase.from("contact_messages").insert(row);
+  const row = {
+    topic,
+    name,
+    email: email || null,
+    phone: phone || null,
+    listingId,
+    message,
+  };
 
-  // The listing may have been deleted; keep the message anyway.
-  if (error?.code === "23503") {
-    ({ error } = await supabase
-      .from("contact_messages")
-      .insert({ ...row, listing_id: null, message: `[Listing ${listingId}] ${message}` }));
-  }
+  try {
+    await db.insert(contactMessages).values(row);
+  } catch (error) {
+    // 23503 is a foreign key violation: the listing was deleted between the
+    // visitor opening the form and sending it. Their message still matters,
+    // so keep it and record the id in the text instead of losing it.
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "";
 
-  if (error) {
-    console.error("Contact form insert failed:", error.message);
-    return { ok: false, message: "Sorry, we couldn't send that. Please try again in a moment." };
+    if (code === "23503" && listingId) {
+      try {
+        await db.insert(contactMessages).values({
+          ...row,
+          listingId: null,
+          message: `[Listing ${listingId}] ${message}`,
+        });
+        return { ok: true, message: "Thanks! We've got your message and will reply soon." };
+      } catch (retryError) {
+        console.error("Contact form insert failed on retry:", retryError);
+      }
+    } else {
+      console.error("Contact form insert failed:", error);
+    }
+
+    return {
+      ok: false,
+      message: "Sorry, we couldn't send that. Please try again in a moment.",
+    };
   }
 
   return { ok: true, message: "Thanks! We've got your message and will reply soon." };

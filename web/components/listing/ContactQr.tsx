@@ -11,7 +11,7 @@ function qrSvg(text: string) {
     type: "svg",
     margin: 1,
     errorCorrectionLevel: "M",
-    color: { dark: "#0B3D2E", light: "#FFFFFF" },
+    color: { dark: "#10291F", light: "#FFFFFF" },
   });
 }
 

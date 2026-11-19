@@ -14,8 +14,17 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TENURE_LABELS } from "@/lib/format";
 import { DISTRICTS } from "@/lib/search";
-import type { AdminListing } from "@/lib/supabase/rows";
+import type { AdminListing } from "@/lib/db/rows";
 import type { ListingType } from "@/lib/types";
+import {
+  BATHROOM_LABELS,
+  DEFAULT_MOVE_IN,
+  POWER_LABELS,
+  UNIT_LABELS,
+  UNIT_LOCAL_NAMES,
+  UNIT_TYPES,
+  WATER_LABELS,
+} from "@/lib/uganda";
 
 interface Option {
   value: string;
@@ -41,6 +50,48 @@ const STATUS_OPTIONS: Option[] = [
   { value: "archived", label: "Archived (hidden)" },
 ];
 const DISTRICT_OPTIONS: Option[] = DISTRICTS.map((d) => ({ value: d, label: d }));
+
+// --- Rental options -------------------------------------------------------
+// "Not stated" is a real answer and different from "no": a listing that
+// hasn't said where the toilet is must not be advertised as self-contained.
+//
+// It needs a non-empty value because Radix's Select throws on an empty
+// string, and it cannot be "none" either, since that is a real value for
+// the electricity field. The server maps this sentinel back to null.
+const UNSET = "unset";
+const NOT_STATED: Option = { value: UNSET, label: "Not stated" };
+
+const UNIT_OPTIONS: Option[] = [
+  NOT_STATED,
+  ...UNIT_TYPES.map((u) => ({
+    value: u,
+    label: UNIT_LOCAL_NAMES[u]
+      ? `${UNIT_LABELS[u]} (${UNIT_LOCAL_NAMES[u]})`
+      : UNIT_LABELS[u],
+  })),
+];
+const BATHROOM_OPTIONS: Option[] = [
+  NOT_STATED,
+  ...Object.entries(BATHROOM_LABELS).map(([value, label]) => ({ value, label })),
+];
+const WATER_OPTIONS: Option[] = [
+  NOT_STATED,
+  ...Object.entries(WATER_LABELS).map(([value, label]) => ({ value, label })),
+];
+const POWER_OPTIONS: Option[] = [
+  NOT_STATED,
+  ...Object.entries(POWER_LABELS).map(([value, label]) => ({ value, label })),
+];
+const YES_NO_OPTIONS: Option[] = [
+  NOT_STATED,
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+];
+
+/** Turns a stored boolean back into the three-way select's value. */
+function yesNo(value: boolean | null | undefined): string {
+  return value == null ? UNSET : value ? "yes" : "no";
+}
 
 function Field({
   name,
@@ -101,7 +152,8 @@ function Choice({
 
 export function ListingForm({ listing }: { listing?: AdminListing }) {
   const [state, action, pending] = useActionState(saveListing, null);
-  const [type, setType] = useState<ListingType>(listing?.type ?? "buy");
+  // Rentals are the bulk of the market, so a new listing starts as one.
+  const [type, setType] = useState<ListingType>(listing?.type ?? "rent");
   const err = (field: string) => state?.errors?.[field];
 
   const text = (name: string, value?: string | number | null, props: React.ComponentProps<"input"> = {}) => (
@@ -188,6 +240,105 @@ export function ListingForm({ listing }: { listing?: AdminListing }) {
             </Field>
           </CardContent>
         </Card>
+
+        {/*
+          What renters actually filter on. Without these a rental cannot be
+          found by room type or by whether it is self-contained, so this
+          card is the difference between a listing being discoverable and
+          sitting invisible at the bottom of the results.
+        */}
+        {type === "rent" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display font-bold">Renting details</CardTitle>
+              <CardDescription>
+                How Ugandans search. Fill in the room type and the toilet at
+                minimum, or this listing will be missed by people filtering
+                for it.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-3">
+              <Field name="unitType" error={err("unitType")} label="Room type">
+                <Choice
+                  name="unitType"
+                  invalid={!!err("unitType")}
+                  options={UNIT_OPTIONS}
+                  defaultValue={listing?.unitType ?? UNSET}
+                />
+              </Field>
+              <Field
+                name="bathroom"
+                error={err("bathroom")}
+                label="Toilet and shower"
+                hint="&quot;Self-contained&quot; means inside the unit"
+              >
+                <Choice
+                  name="bathroom"
+                  invalid={!!err("bathroom")}
+                  options={BATHROOM_OPTIONS}
+                  defaultValue={listing?.bathroom ?? UNSET}
+                />
+              </Field>
+              <Field name="ownKitchen" error={err("ownKitchen")} label="Own kitchen">
+                <Choice
+                  name="ownKitchen"
+                  invalid={!!err("ownKitchen")}
+                  options={YES_NO_OPTIONS}
+                  defaultValue={yesNo(listing?.ownKitchen)}
+                />
+              </Field>
+              <Field name="water" error={err("water")} label="Water">
+                <Choice
+                  name="water"
+                  invalid={!!err("water")}
+                  options={WATER_OPTIONS}
+                  defaultValue={listing?.water ?? UNSET}
+                />
+              </Field>
+              <Field name="power" error={err("power")} label="Electricity">
+                <Choice
+                  name="power"
+                  invalid={!!err("power")}
+                  options={POWER_OPTIONS}
+                  defaultValue={listing?.power ?? UNSET}
+                />
+              </Field>
+              <Field name="fenced" error={err("fenced")} label="Fenced compound">
+                <Choice
+                  name="fenced"
+                  invalid={!!err("fenced")}
+                  options={YES_NO_OPTIONS}
+                  defaultValue={yesNo(listing?.fenced)}
+                />
+              </Field>
+
+              <Field
+                name="advanceMonths"
+                error={err("advanceMonths")}
+                label="Rent in advance (months)"
+                hint={`Normally ${DEFAULT_MOVE_IN.advanceMonths}. Over 2 is a lot.`}
+              >
+                {text("advanceMonths", listing?.moveIn?.advanceMonths, { inputMode: "numeric" })}
+              </Field>
+              <Field
+                name="depositMonths"
+                error={err("depositMonths")}
+                label="Security deposit (months)"
+                hint="Normally 1 at most"
+              >
+                {text("depositMonths", listing?.moveIn?.depositMonths, { inputMode: "numeric" })}
+              </Field>
+              <Field
+                name="brokerFeeMonths"
+                error={err("brokerFeeMonths")}
+                label="Broker fee paid by tenant (months)"
+                hint="Normally 0: the landlord pays the broker"
+              >
+                {text("brokerFeeMonths", listing?.moveIn?.brokerFeeMonths, { inputMode: "numeric" })}
+              </Field>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

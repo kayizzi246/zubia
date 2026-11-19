@@ -27,7 +27,7 @@ export function SaveShareButtons({ id, title }: { id: string; title: string }) {
   return (
     <div className="flex gap-2">
       <button type="button" onClick={() => toggleSaved(id)} aria-pressed={saved} className={button}>
-        <Heart className={`size-4 ${saved ? "fill-sun text-sun" : ""}`} />
+        <Heart className={`size-4 ${saved ? "fill-primary text-primary" : ""}`} />
         {saved ? "Saved" : "Save"}
       </button>
       <button type="button" onClick={share} className={button}>

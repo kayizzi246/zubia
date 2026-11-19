@@ -2,19 +2,37 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAdminOrNull } from "@/lib/auth";
 import { enhanceListingPhoto } from "@/lib/images/enhance";
-import { createClient } from "@/lib/supabase/server";
+import {
+  isStorageConfigured,
+  putPhoto,
+  storageConfigProblem,
+} from "@/lib/storage/r2";
 
 // Upload one listing photo: keep the original, enhance a copy, store both in
-// Supabase Storage and return their public URLs. One photo per request, so
+// R2 (S3-compatible) and return their public URLs. One photo per request, so
 // each photo shows its own progress and a slow AI call can't time out the rest.
 
-const BUCKET = "listing-photos";
 const MAX_BYTES = 15 * 1024 * 1024;
 const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 export async function POST(request: Request) {
   const admin = await getAdminOrNull();
   if (!admin) return NextResponse.json({ error: "Please sign in as an admin." }, { status: 401 });
+  if (!admin.can("listings.manage")) {
+    return NextResponse.json(
+      { error: "Your admin account cannot change listing photos." },
+      { status: 403 },
+    );
+  }
+
+  // Checked before reading the upload, so a misconfigured server says so
+  // instead of accepting a 15 MB file and then failing.
+  if (!isStorageConfigured()) {
+    return NextResponse.json(
+      { error: storageConfigProblem() ?? "Photo storage is not set up." },
+      { status: 503 },
+    );
+  }
 
   const form = await request.formData();
   const file = form.get("photo");
@@ -35,30 +53,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That file doesn't look like a valid photo." }, { status: 422 });
   }
 
-  const supabase = await createClient();
   const id = randomUUID();
   const month = new Date().toISOString().slice(0, 7); // e.g. 2026-11
-  const originalPath = `originals/${month}/${id}.${TYPES[file.type]}`;
-  const enhancedPath = `listings/${month}/${id}.webp`;
+  // originals/ keeps the untouched upload so a photo can always be redone;
+  // listings/ holds the enhanced copy the site shows.
+  const originalKey = `originals/${month}/${id}.${TYPES[file.type]}`;
+  const enhancedKey = `listings/${month}/${id}.webp`;
 
-  const [orig, enh] = await Promise.all([
-    supabase.storage.from(BUCKET).upload(originalPath, input, { contentType: file.type, cacheControl: "31536000" }),
-    supabase.storage.from(BUCKET).upload(enhancedPath, enhanced.data, { contentType: "image/webp", cacheControl: "31536000" }),
-  ]);
-  const uploadError = orig.error ?? enh.error;
-  if (uploadError) {
-    console.error("Photo upload failed:", uploadError.message);
+  let urls: [string, string];
+  try {
+    urls = await Promise.all([
+      putPhoto(enhancedKey, enhanced.data, "image/webp"),
+      putPhoto(originalKey, input, file.type),
+    ]);
+  } catch (error) {
+    console.error("Photo upload failed:", error);
     return NextResponse.json(
-      { error: "Couldn't save the photo. Has supabase/migrations/0003_photo_storage.sql been run?" },
+      { error: "Couldn't save the photo. Check the R2 settings in web/.env.local." },
       { status: 500 },
     );
   }
 
-  const publicUrl = (path: string) => supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-
   return NextResponse.json({
-    url: publicUrl(enhancedPath),
-    originalUrl: publicUrl(originalPath),
+    url: urls[0],
+    originalUrl: urls[1],
     method: enhanced.method,
     aiNote: enhanced.aiNote,
     width: enhanced.width,

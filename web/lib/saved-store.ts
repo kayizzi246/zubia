@@ -1,7 +1,7 @@
 "use client";
 
 // Saved (hearted) listings, kept in this browser only.
-// TODO(supabase): save to a `saved_listings` table for signed-in users so
+// TODO(db): save to a `saved_listings` table for signed-in users so
 // hearts follow them between the website and the app.
 
 import { useSyncExternalStore } from "react";

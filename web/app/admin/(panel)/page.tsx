@@ -26,7 +26,7 @@ export default async function AdminDashboardPage() {
 
       <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.label} className={kpi.highlight ? "border-sun ring-2 ring-sun/30" : ""}>
+          <Card key={kpi.label} className={kpi.highlight ? "border-primary ring-2 ring-primary/30" : ""}>
             <CardContent className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{kpi.label}</p>

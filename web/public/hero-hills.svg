@@ -1,17 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-  <path d="M0 150 Q180 80 360 130 T720 110 T1080 120 T1440 90 V260 H0 Z" fill="#0E5A43"/>
-  <g fill="#0B3D2E">
-    <path d="M140 150 l30 -26 l30 26 v40 h-60 z"/>
-    <path d="M520 128 l38 -32 l38 32 v60 h-76 z"/>
-    <rect x="860" y="70" width="46" height="120"/>
-    <rect x="916" y="96" width="38" height="94"/>
-    <path d="M1180 120 l30 -26 l30 26 v70 h-60 z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none" aria-hidden="true">
+  <!-- Decorative skyline for the home-page hero. Drawn for a wide, shallow
+       band: the whole viewBox is meant to be visible, so it is rendered at its
+       natural aspect ratio rather than cropped. Colours step down from the
+       Royal Blue hero background towards Deep Navy, with Sky-tinted windows. -->
+  <path d="M0 70 Q180 40 360 62 T720 52 T1080 58 T1440 44 V160 H0 Z" fill="#0040A8"/>
+  <g fill="#10291F">
+    <path d="M140 92 l30 -22 l30 22 v34 h-60 z"/>
+    <path d="M510 80 l38 -26 l38 26 v48 h-76 z"/>
+    <rect x="860" y="46" width="46" height="82"/>
+    <rect x="916" y="66" width="38" height="62"/>
+    <path d="M1180 76 l30 -22 l30 22 v52 h-60 z"/>
   </g>
-  <g fill="#F2B705" opacity="0.85">
-    <rect x="872" y="86" width="8" height="8"/><rect x="888" y="86" width="8" height="8"/>
-    <rect x="872" y="104" width="8" height="8"/><rect x="888" y="122" width="8" height="8"/>
-    <rect x="926" y="112" width="8" height="8"/><rect x="540" y="140" width="10" height="10"/>
-    <rect x="1202" y="140" width="10" height="10"/>
+  <g fill="#74CCA4" opacity="0.9">
+    <rect x="872" y="58" width="8" height="8"/><rect x="888" y="58" width="8" height="8"/>
+    <rect x="872" y="74" width="8" height="8"/><rect x="888" y="90" width="8" height="8"/>
+    <rect x="926" y="80" width="8" height="8"/><rect x="530" y="92" width="10" height="10"/>
+    <rect x="1202" y="94" width="10" height="10"/>
   </g>
-  <path d="M0 200 Q240 160 520 190 T1040 185 T1440 170 V260 H0 Z" fill="#0B3D2E"/>
+  <path d="M0 118 Q240 96 520 112 T1040 108 T1440 100 V160 H0 Z" fill="#10291F"/>
 </svg>
