@@ -34,54 +34,96 @@ import 'package:latlong2/latlong.dart' as ll;
 //  entry or the build fails on "Couldn't resolve the package".
 // ═══════════════════════════════════════════════════════════════
 
-/// Where the map gets its tiles.
-///
-/// OpenStreetMap's public tile servers are free and need no key, which
-/// is why they are here — but their usage policy is aimed at modest,
-/// non-commercial traffic. Before real users arrive, point this at your
-/// own tile source or a paid provider, or the tiles will be cut off.
-///
-/// Tiles are also the heaviest thing this app downloads. The map opens
-/// at a sensible zoom and the list sits over it precisely so that most
-/// people never load more than a screen's worth.
-const String _tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+// ═══════════════════════════════════════════════════════════════
+//  HOW THE MAP LOOKS
+//
+//  Changing the map's whole appearance is one line: _mapStyle. No
+//  extra package is involved — a basemap is just a URL that serves
+//  PNG tiles, and all three of these are rendered from the same
+//  OpenStreetMap data, styled differently.
+// ═══════════════════════════════════════════════════════════════
 
-/// Sent with every tile request, as OSM's policy asks.
+enum _MapStyle {
+  /// Near-black land, dark water, almost no colour. Price pins read
+  /// like neon on it, which is the look the big property apps use at
+  /// night. The smallest of the three to download.
+  dark,
+
+  /// Pale grey, almost white. Quiet under a white results sheet.
+  light,
+
+  /// OpenStreetMap's own palette — green parks, yellow trunk roads.
+  /// The most legible as a map and the busiest behind pins, so it is
+  /// the one style that gets muted (see _mapFilter).
+  standard,
+}
+
+/// The one line to change.
+const _MapStyle _mapStyle = _MapStyle.dark;
+
+String get _tileUrl => switch (_mapStyle) {
+      _MapStyle.dark =>
+        'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+      _MapStyle.light =>
+        'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+      _MapStyle.standard => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    };
+
+/// Credit for whoever drew the tiles. Both of these are a licence
+/// requirement, not decoration: the data is OpenStreetMap's and the
+/// dark and light styles are CARTO's.
+///
+/// Whatever you switch the style to, the credit has to switch with it.
+String get _tileCredit => switch (_mapStyle) {
+      _MapStyle.standard => '© OpenStreetMap',
+      _ => '© OpenStreetMap, © CARTO',
+    };
+
+/// Both tile sources are free and need no key, and both are aimed at
+/// modest traffic. Before real users arrive, move to your own tile
+/// source or a paid plan, or the tiles will be cut off.
+///
+/// Tiles are the heaviest thing this app downloads. The map opens at
+/// one sensible zoom and the sheet covers most of it on purpose, so an
+/// ordinary search fetches a screen's worth and no more. The dark and
+/// light styles are roughly half the weight of the standard one.
 const String _tileAgent = 'ug.zubia.app';
 
 /// Where the map looks when there is nothing to centre on yet.
 const ll.LatLng _kampala = ll.LatLng(0.3476, 32.5825);
 
-/// How much colour the map keeps: 0 is grey, 1 is OpenStreetMap's own
-/// palette. 0.3 leaves roads and water faintly readable and nothing
-/// else shouting.
+/// How much colour the standard OSM style keeps: 0 grey, 1 untouched.
 ///
-/// Raw OSM tiles are bright — green parks, yellow trunk roads, pink
-/// motorways — and a green price pin lands on them invisibly. Muting
-/// the map is what lets the pins carry the only strong colour on the
-/// screen, which is how every property app does it.
-///
-/// Turn it up if you want more of the city legible; down for a quieter
-/// backdrop.
+/// Raw OSM tiles are bright, and a green price pin lands on them
+/// invisibly. Muting them is what lets the pins carry the only strong
+/// colour on screen. The dark and light styles are already quiet, so
+/// they are left alone — filtering them again only muddies them.
 const double _mapColour = 0.3;
 
 /// Lifts the muted tiles toward white so the sheet and the map do not
 /// read as two different greys stacked on each other.
 const double _mapLift = 18;
 
-/// The standard saturation matrix, with a brightness term in the last
-/// column. The luminance weights are the usual sRGB ones, so grey
-/// comes out neutral rather than tinted.
-ColorFilter get _mapFilter {
+/// Null for the styles that need no help. The standard style gets a
+/// saturation matrix with a brightness term in the last column; the
+/// luminance weights are the usual sRGB ones, so grey comes out
+/// neutral rather than tinted.
+ColorFilter? get _mapFilter {
+  if (_mapStyle != _MapStyle.standard) return null;
   const lr = 0.213, lg = 0.715, lb = 0.072;
   const s = _mapColour;
-  return ColorFilter.matrix(<double>[
+  return const ColorFilter.matrix(<double>[
     lr + (1 - lr) * s, lg - lg * s, lb - lb * s, 0, _mapLift,
     lr - lr * s, lg + (1 - lg) * s, lb - lb * s, 0, _mapLift,
     lr - lr * s, lg - lg * s, lb + (1 - lb) * s, 0, _mapLift,
     0, 0, 0, 1, 0,
   ]);
 }
+
+/// What shows behind the tiles before they arrive. A white flash under
+/// a dark map is the most obvious way to make loading look broken.
+Color get _mapBackdrop =>
+    _mapStyle == _MapStyle.dark ? const Color(0xFF1B2A24) : _tile;
 
 // ═══════════════════════════════════════════════════════════════
 //  WHERE THE WEB APP LIVES
@@ -198,7 +240,12 @@ const List<BoxShadow> _lift = [
 /// Anything tappable: it dims and scales very slightly. Restrained on
 /// purpose — a flat white page with bouncy buttons reads as a toy.
 class _Press extends StatefulWidget {
-  const _Press({required this.child, this.onTap, this.scale = 0.97});
+  const _Press({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.scale = 0.97,
+  });
 
   final Widget child;
   final VoidCallback? onTap;
@@ -812,10 +859,36 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   late _Filters _filters = _Filters(type: ZubiaSearch.openType);
   final TextEditingController _query = TextEditingController();
   final MapController _map = MapController();
+  final DraggableScrollableController _sheetCtl =
+      DraggableScrollableController();
+
+  /// How much of the screen the results sheet currently covers.
+  ///
+  /// A ValueNotifier rather than setState: this changes on every frame
+  /// of a drag, and rebuilding the whole page — map, tiles, pins and
+  /// the whole list — sixty times a second would make the drag stutter
+  /// on exactly the cheap phones this app is for. Only the three small
+  /// things that care about the position listen to it.
+  final ValueNotifier<double> _extent = ValueNotifier<double>(_sheetMid);
+
+  /// The sheet's resting positions.
+  static const double _sheetLow = 0.28;
+  static const double _sheetMid = 0.55;
+  static const double _sheetHigh = 0.94;
+
+  /// Past this the map is effectively gone, so the page stops being a
+  /// map with a list on it and becomes a list.
+  static const double _listMode = 0.85;
 
   /// Set once the map is built, so a result set that arrives first does
   /// not try to move a map that is not there yet.
   bool _mapReady = false;
+
+  /// The pin someone has tapped, if any. Tapping a pin previews the
+  /// place rather than opening it: on a map you are comparing, and
+  /// being thrown into a full page for every pin you poke at is how
+  /// you lose your place.
+  String? _selected;
 
   List<_Listing> _listings = const [];
   int _total = 0;
@@ -845,7 +918,33 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   void dispose() {
     _query.dispose();
     _map.dispose();
+    _sheetCtl.dispose();
+    _extent.dispose();
     super.dispose();
+  }
+
+  /// Tapping a pin drops the sheet out of the way and brings the
+  /// preview card up in its place.
+  void _selectPin(String id) {
+    HapticFeedback.selectionClick();
+    setState(() => _selected = id);
+    if (_sheetCtl.isAttached && _extent.value > _sheetLow + 0.02) {
+      _sheetCtl.animateTo(
+        _sheetLow,
+        duration: const Duration(milliseconds: 260),
+        curve: _ease,
+      );
+    }
+  }
+
+  /// Sends the sheet back down so the map is readable again.
+  void _showMap() {
+    if (!_sheetCtl.isAttached) return;
+    _sheetCtl.animateTo(
+      _sheetLow,
+      duration: const Duration(milliseconds: 300),
+      curve: _ease,
+    );
   }
 
   /// Puts the map over whatever the search just returned.
@@ -976,68 +1075,143 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,
-            body: Stack(
-              children: [
-                // The map fills the screen; the results sheet covers the
-                // bottom half of it and can be dragged up over the lot.
-                Positioned.fill(child: _mapView()),
+            body: NotificationListener<DraggableScrollableNotification>(
+              // Feeds the sheet's position to the three things that
+              // care about it, without rebuilding the map on every
+              // frame of the drag.
+              onNotification: (n) {
+                _extent.value = n.extent;
+                return false;
+              },
+              child: Stack(
+                children: [
+                  // The map fills the screen; the results sheet covers
+                  // the bottom of it and can be dragged up over the lot.
+                  Positioned.fill(child: _mapView()),
 
-                // The sheet. Its lowest stop leaves the map readable,
-                // its highest covers it completely, so the same screen
-                // works for someone browsing an area and someone
-                // reading through a list.
-                DraggableScrollableSheet(
-                  initialChildSize: 0.55,
-                  minChildSize: 0.28,
-                  maxChildSize: 0.94,
-                  snap: true,
-                  snapSizes: const [0.28, 0.55, 0.94],
-                  builder: (context, controller) =>
-                      _sheet(controller, mq.padding.bottom),
-                ),
-
-                // Required by OpenStreetMap's licence, not decoration:
-                // the data is theirs and has to be credited wherever
-                // the map is shown. Sits just above the sheet's lowest
-                // stop so it is never buried under it.
-                Positioned(
-                  left: 10,
-                  bottom: mq.size.height * 0.28 + 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _white.withOpacity(0.82),
-                      borderRadius: BorderRadius.circular(4),
+                  // The credit, which the tile licences require. It
+                  // rides just above the sheet instead of sitting at a
+                  // fixed height, or the sheet buries it the moment
+                  // anyone drags it up.
+                  ValueListenableBuilder<double>(
+                    valueListenable: _extent,
+                    builder: (_, e, __) => Positioned(
+                      left: 10,
+                      bottom: mq.size.height * e + 8,
+                      child: AnimatedOpacity(
+                        // Pointless once the map is covered.
+                        opacity: e > _listMode ? 0 : 1,
+                        duration: const Duration(milliseconds: 150),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _white.withOpacity(0.82),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(_tileCredit,
+                              style: _txt(10, color: _mid, height: 1.2)),
+                        ),
+                      ),
                     ),
-                    child: Text('© OpenStreetMap',
-                        style: _txt(10, color: _mid, height: 1.2)),
                   ),
-                ),
 
-                // Controls ride on top of the map, not in a bar above
-                // it: the map is the page, so nothing should push it
-                // down.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: Column(
-                    children: [
-                      _searchBar(mq.padding.top),
-                      if (_filters.chips.isNotEmpty) _chipRow(),
-                    ],
+                  // The preview for a tapped pin, between the map and
+                  // the sheet.
+                  ValueListenableBuilder<double>(
+                    valueListenable: _extent,
+                    builder: (_, e, __) => Positioned(
+                      left: 14,
+                      right: 14,
+                      bottom: mq.size.height * e + 12,
+                      child: _preview(),
+                    ),
                   ),
-                ),
 
-                if (!_pushed)
+                  // The sheet. Its lowest stop leaves the map readable,
+                  // its highest covers it completely, so the same
+                  // screen serves someone browsing an area and someone
+                  // reading through a list.
+                  DraggableScrollableSheet(
+                    controller: _sheetCtl,
+                    initialChildSize: _sheetMid,
+                    minChildSize: _sheetLow,
+                    maxChildSize: _sheetHigh,
+                    snap: true,
+                    snapSizes: const [_sheetLow, _sheetMid, _sheetHigh],
+                    builder: (context, controller) =>
+                        _sheet(controller, mq.padding.bottom),
+                  ),
+
+                  // Controls ride on top of the map, not in a bar above
+                  // it: the map is the page, so nothing should push it
+                  // down. Once the sheet covers the map they need a
+                  // solid backdrop, or the list scrolls up through
+                  // them.
                   Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: mq.padding.bottom + 10,
-                    child: _tabBar(),
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _extent,
+                      builder: (_, e, child) {
+                        final listing = e > _listMode;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          decoration: BoxDecoration(
+                            color: listing ? _white : Colors.transparent,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: listing ? _line : Colors.transparent,
+                              ),
+                            ),
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: Column(
+                        children: [
+                          _searchBar(mq.padding.top),
+                          if (_filters.chips.isNotEmpty) _chipRow(),
+                        ],
+                      ),
+                    ),
                   ),
-              ],
+
+                  // "Map" — the way back out of the list, as every
+                  // property app does it. Only there once the map has
+                  // actually gone.
+                  if (!_pushed)
+                    ValueListenableBuilder<double>(
+                      valueListenable: _extent,
+                      builder: (_, e, __) {
+                        final show = e > _listMode;
+                        return AnimatedPositioned(
+                          duration: const Duration(milliseconds: 220),
+                          curve: _ease,
+                          left: 0,
+                          right: 0,
+                          bottom: mq.padding.bottom +
+                              _tabBarHeight +
+                              (show ? 22 : -60),
+                          child: AnimatedOpacity(
+                            opacity: show ? 1 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            child: Center(child: _mapButton()),
+                          ),
+                        );
+                      },
+                    ),
+
+                  if (!_pushed)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: mq.padding.bottom + 10,
+                      child: _tabBar(),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1057,7 +1231,12 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
         initialZoom: 12,
         minZoom: 5,
         maxZoom: 18,
-        backgroundColor: _tile,
+        backgroundColor: _mapBackdrop,
+        // Tapping bare map puts the preview away, the way tapping off
+        // anything ought to close it.
+        onTap: (_, __) {
+          if (_selected != null) setState(() => _selected = null);
+        },
         // Rotation is a nuisance on a property map: people spin it by
         // accident with two fingers and cannot find north again.
         interactionOptions: const InteractionOptions(
@@ -1073,46 +1252,195 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
       ),
       children: [
         // The mute is applied to the tiles only, never to the whole
-        // map: filtering the pins too would wash the price green out
-        // along with everything else.
-        ColorFiltered(
-          colorFilter: _mapFilter,
-          child: TileLayer(
+        // map: filtering the pins too would wash the price out along
+        // with everything else. Null for the styles that are already
+        // quiet enough.
+        if (_mapFilter case final f?)
+          ColorFiltered(
+            colorFilter: f,
+            child: TileLayer(
+              urlTemplate: _tileUrl,
+              userAgentPackageName: _tileAgent,
+            ),
+          )
+        else
+          TileLayer(
             urlTemplate: _tileUrl,
             userAgentPackageName: _tileAgent,
           ),
-        ),
         MarkerLayer(
           markers: [
-            for (final l in pins)
+            // The chosen pin is built last so it draws over its
+            // neighbours. On a dense map it would otherwise grow
+            // underneath them and look clipped.
+            for (final l in [
+              ...pins.where((p) => p.id != _selected),
+              ...pins.where((p) => p.id == _selected),
+            ])
               Marker(
                 point: l.point!,
-                width: 74,
-                height: 30,
-                child: _Press(
-                  scale: 0.9,
-                  onTap: () => _openListing(l.id),
-                  child: Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _brand,
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: _white, width: 1.5),
-                      boxShadow: _lift,
-                    ),
-                    // The price on the pin, not a dot. On a map of
-                    // rentals the number is the whole reason to look.
-                    child: Text(
-                      _shortUgx(l.priceUGX),
-                      style: _txt(12.5,
-                          weight: FontWeight.w700, color: _white, height: 1.1),
-                    ),
-                  ),
+                width: 86,
+                height: 38,
+                child: _MapPin(
+                  label: _shortUgx(l.priceUGX),
+                  selected: l.id == _selected,
+                  saved: _SavedStore().isSaved(l.id),
+                  onTap: () => _selectPin(l.id),
                 ),
               ),
           ],
         ),
       ],
+    );
+  }
+
+  /// The dark pill that sends you back to the map.
+  Widget _mapButton() => _Press(
+        scale: 0.94,
+        onTap: _showMap,
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: _ink,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: _lift,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.map_outlined, size: 17, color: _white),
+              const SizedBox(width: 8),
+              Text('Map',
+                  style: _txt(15, weight: FontWeight.w600, color: _white)),
+            ],
+          ),
+        ),
+      );
+
+  // --- Pin preview -------------------------------------------------------
+
+  /// The card that rises when a pin is tapped.
+  ///
+  /// `AnimatedSwitcher` with a slide and a fade — stock Flutter. It is
+  /// keyed on the listing id, so moving from one pin straight to
+  /// another swaps the card rather than leaving it sitting there
+  /// showing the wrong place.
+  Widget _preview() {
+    final id = _selected;
+    final l = id == null
+        ? null
+        : _listings.where((x) => x.id == id).cast<_Listing?>().firstWhere(
+              (x) => true,
+              orElse: () => null,
+            );
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 240),
+      switchInCurve: _ease,
+      switchOutCurve: _ease,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.25),
+            end: Offset.zero,
+          ).animate(anim),
+          child: child,
+        ),
+      ),
+      child: l == null
+          ? const SizedBox(key: ValueKey('none'), width: double.infinity)
+          : _previewCard(l),
+    );
+  }
+
+  Widget _previewCard(_Listing l) {
+    final photos = l.photos;
+
+    return _Press(
+      key: ValueKey(l.id),
+      scale: 0.98,
+      onTap: () => _openListing(l.id),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: _lift,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 116,
+              height: 104,
+              child: photos.isEmpty
+                  ? const ColoredBox(color: _tile)
+                  : CachedNetworkImage(
+                      imageUrl: photos.first,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 320,
+                      placeholder: (_, __) => const ColoredBox(color: _tile),
+                      errorWidget: (_, __, ___) =>
+                          const ColoredBox(color: _tile),
+                    ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.priceLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _title(18, weight: FontWeight.w800)),
+                    if (l.moveInTotal != null) ...[
+                      const SizedBox(height: 2),
+                      Text('Move in ${_fullUgx(l.moveInTotal!)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _txt(11.5,
+                              weight: FontWeight.w600, color: _clay)),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(l.facts,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _txt(12.5, color: _body)),
+                    const SizedBox(height: 2),
+                    Text(l.address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _txt(12.5, color: _mid)),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ListenableBuilder(
+                listenable: _SavedStore(),
+                builder: (_, __) => _Press(
+                  scale: 0.82,
+                  onTap: () => _SavedStore().toggle(l.id),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      _SavedStore().isSaved(l.id)
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      size: 22,
+                      color: _SavedStore().isSaved(l.id) ? _clay : _mid,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2072,6 +2400,75 @@ class _FiltersSheetState extends State<_FiltersSheet> {
             activeColor: _brand,
           ),
         ],
+      );
+}
+
+/// One price pin on the map.
+///
+/// It grows and inverts when chosen, which is the whole feedback for a
+/// tap on a map — without it nothing on screen says which of forty
+/// pins you actually hit.
+///
+/// `AnimatedScale` and `AnimatedContainer`, both built into Flutter. An
+/// animation package would be weight on the download for an effect two
+/// stock widgets already give.
+class _MapPin extends StatelessWidget {
+  const _MapPin({
+    required this.label,
+    required this.selected,
+    required this.saved,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool saved;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Center(
+          child: AnimatedScale(
+            scale: selected ? 1.18 : 1,
+            duration: const Duration(milliseconds: 220),
+            curve: _ease,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: _ease,
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(
+                // Chosen flips to white-on-ink, so it reads as "this
+                // one" on a dark map and a light one alike.
+                color: selected ? _white : _brand,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: selected ? _ink : _white,
+                  width: 1.5,
+                ),
+                boxShadow: _lift,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (saved) ...[
+                    Icon(Icons.favorite_rounded,
+                        size: 11, color: selected ? _clay : _white),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    label,
+                    style: _txt(12.5,
+                        weight: FontWeight.w700,
+                        color: selected ? _ink : _white,
+                        height: 1.1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
 }
 
