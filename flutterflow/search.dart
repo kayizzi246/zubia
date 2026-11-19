@@ -33,6 +33,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ═══════════════════════════════════════════════════════════════
 const String _apiBase = 'http://localhost:3001';
 
+/// Which listing type the Search page opens on: "rent", "buy" or "land".
+///
+/// Set this immediately before opening the page and it is picked up on
+/// the way in. It exists so Search needs no parameter — Home's hero
+/// pills and its three tiles each set it and then navigate.
+///
+/// Public on purpose: in FlutterFlow the other custom widgets see it
+/// through `custom_code/widgets/index.dart`.
+String zubiaSearchType = 'rent';
+
 // ═══════════════════════════════════════════════════════════════
 //  TOKENS — identical in home, search, listing, saved and profile.
 // ═══════════════════════════════════════════════════════════════
@@ -602,39 +612,11 @@ class _SavedStore extends ChangeNotifier {
 /// is the price and the move-in cost, which a list shows and a pin
 /// does not.
 ///
-/// In FlutterFlow:
-///   initialType   "rent" | "buy" | "land", passed from whoever opened it
-///   onBack        leave null when this is a tab; set it when pushed
-///   onOpenListing -> the Listing page, passing `listingId`
+/// Takes no parameters. It opens on [zubiaSearchType], which whoever
+/// navigated here sets first, and works out for itself whether it is the
+/// Search tab or a page that was pushed on top of Home.
 class ZubiaSearch extends StatefulWidget {
-  const ZubiaSearch({
-    super.key,
-    this.width,
-    this.height,
-    this.initialType,
-    this.onOpenListing,
-    this.onBack,
-    this.onHomeTap,
-    this.onSavedTap,
-    this.onProfileTap,
-  });
-
-  final double? width;
-  final double? height;
-
-  /// "rent", "buy" or "land". Renting is the default because far more
-  /// people are looking for a room to live in than are buying land.
-  final String? initialType;
-
-  final Future Function(String listingId)? onOpenListing;
-
-  /// Null means "this is the Search tab": no back button, and room is
-  /// left at the bottom for the tab bar.
-  final Future Function()? onBack;
-
-  final Future Function()? onHomeTap;
-  final Future Function()? onSavedTap;
-  final Future Function()? onProfileTap;
+  const ZubiaSearch({super.key});
 
   @override
   State<ZubiaSearch> createState() => _ZubiaSearchState();
@@ -642,7 +624,7 @@ class ZubiaSearch extends StatefulWidget {
 
 class _ZubiaSearchState extends State<ZubiaSearch> {
   late _Filters _filters =
-      _Filters(type: widget.initialType ?? 'rent');
+      _Filters(type: zubiaSearchType);
   final TextEditingController _query = TextEditingController();
 
   List<_Listing> _listings = const [];
@@ -650,7 +632,17 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   bool _loading = true;
   String? _error;
 
-  bool get _pushed => widget.onBack != null;
+  /// True when Search was pushed on top of another page (Home's hero
+  /// pills and tiles do that), false when it is the Search tab. Decides
+  /// whether there is a back button and whether room is left at the
+  /// bottom for the tab bar.
+  ///
+  /// Worked out on the first build and then kept, not asked again every
+  /// build: once a listing is pushed on top of the Search tab, the
+  /// question would start answering true and the tab would grow a back
+  /// arrow it should not have.
+  bool? _pushedCache;
+  bool get _pushed => _pushedCache ??= Navigator.of(context).canPop();
 
   @override
   void initState() {
@@ -729,6 +721,13 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
     }
   }
 
+  void _openListing(String id) {
+    zubiaListingId = id;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ZubiaListing()),
+    );
+  }
+
   Future<void> _openFilters() async {
     final chosen = await showModalBottomSheet<_Filters>(
       context: context,
@@ -757,8 +756,8 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
         value: SystemUiOverlayStyle.dark
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: widget.width ?? mq.size.width,
-          height: widget.height ?? mq.size.height,
+          width: mq.size.width,
+          height: mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,
@@ -801,7 +800,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
               if (_pushed) ...[
                 _Pressable(
                   scale: 0.88,
-                  onTap: () => widget.onBack?.call(),
+                  onTap: () => Navigator.of(context).maybePop(),
                   child: Container(
                     width: 38,
                     height: 38,
@@ -1063,7 +1062,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
     return _Pressable(
       scale: 0.98,
-      onTap: () => widget.onOpenListing?.call(l.id),
+      onTap: () => _openListing(l.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1176,26 +1175,18 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
         builder: (_, __) => _trueGlass
-            ? ZubiaGlassTabBar(
-                activeIndex: 1,
-                savedCount: _SavedStore().ids.length,
-                onHome: widget.onHomeTap,
-                onSaved: widget.onSavedTap,
-                onProfile: widget.onProfileTap,
-              )
+            ? const ZubiaGlassTabBar(activeIndex: 1)
             : _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
                 child: Row(
                   children: [
-                    _tab(Icons.home_outlined, 'Home', false, widget.onHomeTap,
-                        0),
-                    _tab(Icons.search_rounded, 'Search', true, null, 0),
-                    _tab(Icons.favorite_border_rounded, 'Saved', false,
-                        widget.onSavedTap, _SavedStore().ids.length),
-                    _tab(Icons.person_outline_rounded, 'Profile', false,
-                        widget.onProfileTap, 0),
+                    _tab(Icons.home_outlined, 'Home', false, 0, 0),
+                    _tab(Icons.search_rounded, 'Search', true, 1, 0),
+                    _tab(Icons.favorite_border_rounded, 'Saved', false, 2,
+                        _SavedStore().ids.length),
+                    _tab(Icons.person_outline_rounded, 'Profile', false, 3, 0),
                   ],
                 ),
               ),
@@ -1205,7 +1196,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
     IconData icon,
     String label,
     bool active,
-    Future Function()? onTap,
+    int index,
     int badge,
   ) {
     final color = active ? _brand : _ink.withOpacity(0.72);
@@ -1213,10 +1204,12 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
     return Expanded(
       child: _Pressable(
         scale: 0.90,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap?.call();
-        },
+        onTap: active
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                zubiaOpenTab(context, index);
+              },
         child: Container(
           height: _tabBarHeight,
           margin: const EdgeInsets.all(4),

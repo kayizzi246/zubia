@@ -88,35 +88,49 @@ import '/backend/backend.dart';
 
 Leave that block alone. Everything below it is the widget.
 
-### Parameters to declare
+### Parameters to declare: none
 
-FlutterFlow does not read these off the constructor — add each one by
-hand in the widget's parameter panel.
+The five page widgets take **no parameters at all**. Nothing to declare,
+no actions to wire up. Paste each one, drop it on a blank page at full
+size, and it works.
 
-**All five** take `width` and `height` (`double`, nullable). FlutterFlow
-adds these for you.
+The one exception is `ZubiaGlassTabBar`, which takes a single
+`activeIndex` (Integer). The four pages build it in code and pass their
+own index, so you only declare it if FlutterFlow asks.
 
-| Widget | Parameter | Type | Notes |
+### How they reach each other, with no parameters
+
+Everything happens in code. The widgets know each other by name —
+FlutterFlow puts them all in `custom_code/widgets/index.dart`, which is
+already in the header of every file.
+
+The two values that have to travel are **public top-level variables**,
+each declared beside the page that reads it:
+
+| Variable | Declared in | Set by | Read by |
 |---|---|---|---|
-| `ZubiaHome` | `onOpenSearch` | Action, 1 param `type` (String) | Navigate to Search, pass `type` through |
-| | `onOpenListing` | Action, 1 param `listingId` (String) | Navigate to Listing |
-| | `onSearchTap` / `onSavedTap` / `onProfileTap` | Action | The other three tabs |
-| `ZubiaSearch` | `initialType` | String, nullable | `"rent"`, `"buy"` or `"land"`; defaults to rent |
-| | `onOpenListing` | Action, 1 param `listingId` (String) | |
-| | `onBack` | Action, nullable | **Leave empty for the Search tab.** Set it only when Search is pushed from Home — that is what decides whether a back button appears and whether room is left for the tab bar |
-| | `onHomeTap` / `onSavedTap` / `onProfileTap` | Action | |
-| `ZubiaListing` | `listingId` | String, **required** | Which listing to fetch |
-| | `onBack` | Action | |
-| `ZubiaSaved` | `onOpenListing` | Action, 1 param `listingId` (String) | |
-| | `onHomeTap` / `onSearchTap` / `onProfileTap` | Action | |
-| `ZubiaProfile` | `onHomeTap` / `onSearchTap` / `onSavedTap` | Action | |
-| `ZubiaGlassTabBar` | `activeIndex` | Integer, **required** | 0 Home · 1 Search · 2 Saved · 3 Profile |
-| | `savedCount` | Integer | Drives the badge on Saved |
-| | `onHome` / `onSearch` / `onSaved` / `onProfile` | Action | The pages pass their own callbacks straight through |
+| `zubiaListingId` | `listing.dart` | Home, Search, Saved, before navigating | `ZubiaListing` on open |
+| `zubiaSearchType` | `search.dart` | Home's hero pills and its three tiles | `ZubiaSearch` on open |
+
+```dart
+zubiaListingId = l.id;
+Navigator.of(context).push(
+  MaterialPageRoute(builder: (_) => const ZubiaListing()),
+);
+```
+
+They are public rather than private because a private top-level variable
+belongs to one file only — each page would get its own separate copy and
+the value would never arrive.
+
+Switching tabs goes through `zubiaOpenTab(context, index)` in
+`glass_tab_bar.dart`, which uses `pushReplacement` so tapping Home from
+Search lands on Home instead of stacking a second Home on top of it.
+Opening a listing uses a plain `push`, so the back button returns to
+where you were.
 
 Each widget draws its own tab bar with its own tab already selected, so
-there is no shared scaffold to build — four FlutterFlow pages, each
-holding one of these widgets at full size, is the whole app.
+there is no shared scaffold to build.
 
 ---
 

@@ -23,14 +23,12 @@ import 'package:flutter/material.dart' hide RepeatMode;
 //   3. In the widget's "Dependencies" box add:
 //          liquid_glass_widgets: ^1.18.0
 //      (needs Flutter 3.41 or newer; FlutterFlow 7.2 ships 3.47.1)
-//   4. Add these parameters (only activeIndex is required):
-//          width        Double
-//          height       Double
+//   4. Add one parameter:
 //          activeIndex  Integer   (required)  0 Home · 1 Search
 //                                             2 Saved · 3 Profile
-//          savedCount   Integer                the badge on Saved
-//          onHome, onSearch, onSaved, onProfile → Action
-//   5. Save / Compile. The four page widgets call this one themselves —
+//      Nothing else. The bar switches pages itself and counts the
+//      saved listings itself, so there are no actions to wire up.
+//   5. Save / Compile. The four page widgets build this one in code —
 //      you do not need to drag it onto any page.
 //
 //  IF IT DOES NOT COMPILE: set `_trueGlass = false` at the top of each
@@ -40,35 +38,42 @@ import 'package:flutter/material.dart' hide RepeatMode;
 
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart' as lg;
 
-class ZubiaGlassTabBar extends StatefulWidget {
-  const ZubiaGlassTabBar({
-    super.key,
-    this.width,
-    this.height,
-    required this.activeIndex,
-    this.savedCount = 0,
-    this.onHome,
-    this.onSearch,
-    this.onSaved,
-    this.onProfile,
-  });
+/// Opens one of the four tab pages, replacing the current one.
+///
+/// `pushReplacement`, not `push`: tapping Home from Search must land on
+/// Home, not stack a second Home on top of it. Over a few minutes of
+/// tapping, `push` would build a pile of pages the back button then has
+/// to be pressed through one at a time.
+///
+/// Public so the five page widgets can call it; in FlutterFlow they see
+/// it through `custom_code/widgets/index.dart`.
+Future<void> zubiaOpenTab(BuildContext context, int index) {
+  final page = switch (index) {
+    1 => const ZubiaSearch(),
+    2 => const ZubiaSaved(),
+    3 => const ZubiaProfile(),
+    _ => const ZubiaHome(),
+  };
+  return Navigator.of(context).pushReplacement(
+    PageRouteBuilder(
+      pageBuilder: (_, __, ___) => page,
+      // No slide. The pages fade in through their own clearing-glass
+      // animation, and a slide on top of that reads as two transitions.
+      transitionsBuilder: (_, a, __, child) =>
+          FadeTransition(opacity: a, child: child),
+      transitionDuration: const Duration(milliseconds: 180),
+    ),
+  );
+}
 
-  final double? width;
-  final double? height;
+class ZubiaGlassTabBar extends StatefulWidget {
+  const ZubiaGlassTabBar({super.key, required this.activeIndex});
 
   /// The tab this page is: 0 Home, 1 Search, 2 Saved, 3 Profile.
   final int activeIndex;
-
-  /// Drives the badge on Saved. The count only appears when there is
-  /// something to count, so the tab never nags for nothing.
-  final int savedCount;
-
-  final Future Function()? onHome;
-  final Future Function()? onSearch;
-  final Future Function()? onSaved;
-  final Future Function()? onProfile;
 
   @override
   State<ZubiaGlassTabBar> createState() => _ZubiaGlassTabBarState();
@@ -109,6 +114,10 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
   Timer? _go;
   Timer? _reset;
 
+  /// Read here rather than passed in, so the bar needs no parameter for
+  /// it. Same key the page widgets use.
+  int _savedCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -117,6 +126,19 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
       _boot!.then((_) {
         if (mounted) setState(() {});
       });
+    }
+    _countSaved();
+  }
+
+  Future<void> _countSaved() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(
+          () => _savedCount = (prefs.getStringList('zubia.saved') ?? []).length);
+    } catch (_) {
+      // A phone that will not give up its preferences still gets a bar;
+      // it just shows no badge.
     }
   }
 
@@ -134,20 +156,8 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
   }
 
   void _fire(int i) {
-    switch (i) {
-      case 0:
-        widget.onHome?.call();
-        break;
-      case 1:
-        widget.onSearch?.call();
-        break;
-      case 2:
-        widget.onSaved?.call();
-        break;
-      case 3:
-        widget.onProfile?.call();
-        break;
-    }
+    if (!mounted) return;
+    zubiaOpenTab(context, i);
   }
 
   /// Tap a tab: the glass flows to it first, then the page switches.
@@ -157,10 +167,10 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
   /// mid-flow and the effect would never be seen.
   void _select(int i) {
     if (_go?.isActive ?? false) return;
-    if (i == widget.activeIndex) {
-      _fire(i); // tapping the current tab scrolls that page to the top
-      return;
-    }
+    // Tapping the tab you are already on does nothing. Reloading the
+    // page under someone would lose their scroll position and cost
+    // another round of photos on metered data.
+    if (i == widget.activeIndex) return;
     HapticFeedback.selectionClick();
     setState(() => _selected = i);
     _go = Timer(const Duration(milliseconds: 260), () {
@@ -224,8 +234,8 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
     // bar of the same size, so nothing jumps.
     if (!_booted) {
       return SizedBox(
-        width: widget.width,
-        height: widget.height ?? _barHeight,
+        width: double.infinity,
+        height: _barHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: _white.withOpacity(0.86),
@@ -245,7 +255,7 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
       // own on top of that.
       horizontalPadding: 0,
       verticalPadding: 0,
-      barHeight: widget.height ?? _barHeight,
+      barHeight: _barHeight,
 
       // Zubia green on the selection, ink on the rest. Set directly
       // rather than through a Theme override, because the bar takes
@@ -272,9 +282,9 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
         ),
         lg.GlassTab(
           icon: _icon(Icons.favorite_border_rounded,
-              badge: widget.savedCount),
+              badge: _savedCount),
           activeIcon:
-              _icon(Icons.favorite_rounded, badge: widget.savedCount),
+              _icon(Icons.favorite_rounded, badge: _savedCount),
           label: 'Saved',
           glowColor: _brand,
         ),
@@ -298,8 +308,8 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
 
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: widget.width ?? double.infinity,
-        maxHeight: widget.height ?? _barHeight,
+        maxWidth: double.infinity,
+        maxHeight: _barHeight,
       ),
       child: lg.LiquidGlassWidgets.wrap(
         brightnessResolver: Theme.maybeBrightnessOf,

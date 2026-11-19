@@ -500,34 +500,11 @@ class _SavedStore extends ChangeNotifier {
 /// Search is for someone who has. A search bar over a dark panel, one
 /// recommended rail, one priced rail, then the three ways in.
 ///
-/// In FlutterFlow, wire the callbacks to Navigate actions:
-///   onOpenSearch(type)   -> the Search page, passing `type` through
-///   onOpenListing(id)    -> the Listing page, passing `listingId`
-///   onSearchTap / onSavedTap / onProfileTap -> the other three tabs
+/// Takes no parameters. Every move it makes — opening a listing, opening
+/// a search, switching tabs — happens in code below, so there is nothing
+/// to wire up in FlutterFlow. Drop it on a blank page and it works.
 class ZubiaHome extends StatefulWidget {
-  const ZubiaHome({
-    super.key,
-    this.width,
-    this.height,
-    this.onOpenSearch,
-    this.onOpenListing,
-    this.onSearchTap,
-    this.onSavedTap,
-    this.onProfileTap,
-  });
-
-  final double? width;
-  final double? height;
-
-  /// Passed "rent", "buy" or "land".
-  final Future Function(String type)? onOpenSearch;
-
-  /// Passed the listing's id, e.g. "zb-046".
-  final Future Function(String listingId)? onOpenListing;
-
-  final Future Function()? onSearchTap;
-  final Future Function()? onSavedTap;
-  final Future Function()? onProfileTap;
+  const ZubiaHome({super.key});
 
   @override
   State<ZubiaHome> createState() => _ZubiaHomeState();
@@ -635,6 +612,26 @@ class _ZubiaHomeState extends State<ZubiaHome> {
   double get _padH =>
       (MediaQuery.sizeOf(context).width * 0.04).clamp(14.0, 22.0);
 
+  // --- Going places ------------------------------------------------------
+  //
+  // No callbacks and nothing to wire up: the pages know each other by
+  // name, and the one value each needs travels in a public variable
+  // declared beside the page that reads it.
+
+  void _openSearch(String type) {
+    zubiaSearchType = type;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ZubiaSearch()),
+    );
+  }
+
+  void _openListing(String id) {
+    zubiaListingId = id;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ZubiaListing()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
@@ -652,8 +649,8 @@ class _ZubiaHomeState extends State<ZubiaHome> {
         value: SystemUiOverlayStyle.dark
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: widget.width ?? mq.size.width,
-          height: widget.height ?? mq.size.height,
+          width: mq.size.width,
+          height: mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,
@@ -690,7 +687,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
                             accent: 'Cheapest first.',
                             blurb: 'Sorted by monthly rent, lowest first.',
                             listings: _affordable,
-                            onSeeAll: () => widget.onOpenSearch?.call('rent'),
+                            onSeeAll: () => _openSearch('rent'),
                           ),
                         ],
                         _tiles(),
@@ -733,7 +730,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
             const Spacer(),
             _Pressable(
               scale: 0.88,
-              onTap: () => widget.onOpenSearch?.call('rent'),
+              onTap: () => _openSearch('rent'),
               child: Container(
                 width: 38,
                 height: 38,
@@ -785,7 +782,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
               // leave the results nowhere to go.
               _Pressable(
                 scale: 0.98,
-                onTap: () => widget.onOpenSearch?.call('rent'),
+                onTap: () => _openSearch('rent'),
                 child: Container(
                   height: 50,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -815,7 +812,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
                   ])
                     _Pressable(
                       scale: 0.94,
-                      onTap: () => widget.onOpenSearch?.call(e.$2),
+                      onTap: () => _openSearch(e.$2),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 8),
@@ -952,7 +949,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
 
     return _Pressable(
       scale: 0.98,
-      onTap: () => widget.onOpenListing?.call(l.id),
+      onTap: () => _openListing(l.id),
       child: SizedBox(
         width: 268,
         child: Column(
@@ -1129,7 +1126,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
               padding: const EdgeInsets.only(bottom: 12),
               child: _Pressable(
                 scale: 0.98,
-                onTap: () => widget.onOpenSearch?.call(t.$5),
+                onTap: () => _openSearch(t.$5),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -1214,26 +1211,18 @@ class _ZubiaHomeState extends State<ZubiaHome> {
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
         builder: (_, __) => _trueGlass
-            ? ZubiaGlassTabBar(
-                activeIndex: 0,
-                savedCount: _SavedStore().ids.length,
-                onSearch: widget.onSearchTap,
-                onSaved: widget.onSavedTap,
-                onProfile: widget.onProfileTap,
-              )
+            ? const ZubiaGlassTabBar(activeIndex: 0)
             : _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
                 child: Row(
                   children: [
-                    _tab(Icons.home_rounded, 'Home', true, null, 0),
-                    _tab(Icons.search_rounded, 'Search', false,
-                        widget.onSearchTap, 0),
-                    _tab(Icons.favorite_border_rounded, 'Saved', false,
-                        widget.onSavedTap, _SavedStore().ids.length),
-                    _tab(Icons.person_outline_rounded, 'Profile', false,
-                        widget.onProfileTap, 0),
+                    _tab(Icons.home_rounded, 'Home', true, 0, 0),
+                    _tab(Icons.search_rounded, 'Search', false, 1, 0),
+                    _tab(Icons.favorite_border_rounded, 'Saved', false, 2,
+                        _SavedStore().ids.length),
+                    _tab(Icons.person_outline_rounded, 'Profile', false, 3, 0),
                   ],
                 ),
               ),
@@ -1243,7 +1232,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
     IconData icon,
     String label,
     bool active,
-    Future Function()? onTap,
+    int index,
     int badge,
   ) {
     final color = active ? _brand : _ink.withOpacity(0.72);
@@ -1251,10 +1240,12 @@ class _ZubiaHomeState extends State<ZubiaHome> {
     return Expanded(
       child: _Pressable(
         scale: 0.90,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap?.call();
-        },
+        onTap: active
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                zubiaOpenTab(context, index);
+              },
         child: Container(
           height: _tabBarHeight,
           margin: const EdgeInsets.all(4),

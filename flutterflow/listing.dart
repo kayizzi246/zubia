@@ -28,6 +28,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ═══════════════════════════════════════════════════════════════
 const String _apiBase = 'http://localhost:3001';
 
+/// Which listing the page shows, e.g. "zb-046".
+///
+/// Set this immediately before opening the page and it is read on the
+/// way in. It exists so the Listing page needs no parameter: Home,
+/// Search and Saved each set it and then navigate.
+///
+/// Public on purpose: in FlutterFlow the other custom widgets see it
+/// through `custom_code/widgets/index.dart`.
+String zubiaListingId = '';
+
 // ═══════════════════════════════════════════════════════════════
 //  TOKENS — identical in home, search, listing, saved and profile.
 // ═══════════════════════════════════════════════════════════════
@@ -539,23 +549,10 @@ class _SavedStore extends ChangeNotifier {
 /// reach is one most people never reach, and on this page getting
 /// someone in touch with the landlord is the whole point.
 ///
-/// In FlutterFlow, pass `listingId` from whichever page was tapped.
+/// Takes no parameters. It shows [zubiaListingId], which whichever page
+/// was tapped sets just before navigating here.
 class ZubiaListing extends StatefulWidget {
-  const ZubiaListing({
-    super.key,
-    this.width,
-    this.height,
-    required this.listingId,
-    this.onBack,
-  });
-
-  final double? width;
-  final double? height;
-
-  /// The listing to show, e.g. "zb-046".
-  final String listingId;
-
-  final Future Function()? onBack;
+  const ZubiaListing({super.key});
 
   @override
   State<ZubiaListing> createState() => _ZubiaListingState();
@@ -587,7 +584,7 @@ class _ZubiaListingState extends State<ZubiaListing> {
     });
 
     try {
-      final data = await _apiGet('/api/v1/listings/${widget.listingId}');
+      final data = await _apiGet('/api/v1/listings/$zubiaListingId');
       final json = (data['listing'] ?? data) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
@@ -633,8 +630,8 @@ class _ZubiaListingState extends State<ZubiaListing> {
         value: SystemUiOverlayStyle.light
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: widget.width ?? mq.size.width,
-          height: widget.height ?? mq.size.height,
+          width: mq.size.width,
+          height: mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,
@@ -718,7 +715,7 @@ class _ZubiaListingState extends State<ZubiaListing> {
               left: _padH,
               top: 8,
               child: _circle(Icons.arrow_back_rounded,
-                  onDark: false, onTap: () => widget.onBack?.call()),
+                  onDark: false, onTap: () => Navigator.of(context).maybePop()),
             ),
           ],
         ),
@@ -805,7 +802,7 @@ class _ZubiaListingState extends State<ZubiaListing> {
           child: Row(
             children: [
               _circle(Icons.arrow_back_rounded,
-                  onDark: true, onTap: () => widget.onBack?.call()),
+                  onDark: true, onTap: () => Navigator.of(context).maybePop()),
               const Spacer(),
               ListenableBuilder(
                 listenable: _SavedStore(),
@@ -999,7 +996,7 @@ class _ZubiaListingState extends State<ZubiaListing> {
                 child: Text(
                   months > 0
                       ? '${line['label']} · $months ${months == 1 ? 'month' : 'months'}'
-                      : '${line['label']}',
+                      : '${line['label'] ?? ''}',
                   style: _txt(13.5, weight: FontWeight.w600, color: _ink),
                 ),
               ),

@@ -442,24 +442,9 @@ class _SavedStore extends ChangeNotifier {
 /// listing that was taken down must not be remembered wrongly on the
 /// phone. The cost is a fetch per saved listing, which is why results
 /// are held for the life of the page.
+/// Takes no parameters: it opens listings and switches tabs in code.
 class ZubiaSaved extends StatefulWidget {
-  const ZubiaSaved({
-    super.key,
-    this.width,
-    this.height,
-    this.onOpenListing,
-    this.onHomeTap,
-    this.onSearchTap,
-    this.onProfileTap,
-  });
-
-  final double? width;
-  final double? height;
-
-  final Future Function(String listingId)? onOpenListing;
-  final Future Function()? onHomeTap;
-  final Future Function()? onSearchTap;
-  final Future Function()? onProfileTap;
+  const ZubiaSaved({super.key});
 
   @override
   State<ZubiaSaved> createState() => _ZubiaSavedState();
@@ -494,6 +479,13 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
     // Saving a listing from another page should show up here, but only
     // when the set of ids actually changed.
     if (_SavedStore().ids.join('|') != _loadedFor) _refresh();
+  }
+
+  void _openListing(String id) {
+    zubiaListingId = id;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ZubiaListing()),
+    );
   }
 
   Future<void> _refresh() async {
@@ -546,8 +538,8 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
         value: SystemUiOverlayStyle.dark
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: widget.width ?? mq.size.width,
-          height: widget.height ?? mq.size.height,
+          width: mq.size.width,
+          height: mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,
@@ -628,7 +620,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
               const SizedBox(height: 20),
               _Pressable(
                 scale: 0.98,
-                onTap: () => widget.onSearchTap?.call(),
+                onTap: () => zubiaOpenTab(context, 1),
                 child: Container(
                   height: 46,
                   padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -687,7 +679,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
 
     return _Pressable(
       scale: 0.98,
-      onTap: () => widget.onOpenListing?.call(l.id),
+      onTap: () => _openListing(l.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -793,27 +785,20 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
         builder: (_, __) => _trueGlass
-            ? ZubiaGlassTabBar(
-                activeIndex: 2,
-                savedCount: _SavedStore().ids.length,
-                onHome: widget.onHomeTap,
-                onSearch: widget.onSearchTap,
-                onProfile: widget.onProfileTap,
-              )
+            ? const ZubiaGlassTabBar(activeIndex: 2)
             : _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
                 child: Row(
                   children: [
-                    _tab(Icons.home_outlined, 'Home', false, widget.onHomeTap,
-                        0),
+                    _tab(Icons.home_outlined, 'Home', false, 0, 0),
                     _tab(Icons.search_rounded, 'Search', false,
-                        widget.onSearchTap, 0),
-                    _tab(Icons.favorite_rounded, 'Saved', true, null,
+                        1, 0),
+                    _tab(Icons.favorite_rounded, 'Saved', true, 2,
                         _SavedStore().ids.length),
                     _tab(Icons.person_outline_rounded, 'Profile', false,
-                        widget.onProfileTap, 0),
+                        3, 0),
                   ],
                 ),
               ),
@@ -823,7 +808,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
     IconData icon,
     String label,
     bool active,
-    Future Function()? onTap,
+    int index,
     int badge,
   ) {
     final color = active ? _brand : _ink.withOpacity(0.72);
@@ -831,10 +816,12 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
     return Expanded(
       child: _Pressable(
         scale: 0.90,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap?.call();
-        },
+        onTap: active
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                zubiaOpenTab(context, index);
+              },
         child: Container(
           height: _tabBarHeight,
           margin: const EdgeInsets.all(4),

@@ -475,22 +475,9 @@ class _SavedStore extends ChangeNotifier {
 /// before they have seen a single room is how a property app loses its
 /// first-time users. So the signed-out state is a card that explains
 /// who signing in is for, not a wall.
+/// Takes no parameters: it switches tabs in code.
 class ZubiaProfile extends StatefulWidget {
-  const ZubiaProfile({
-    super.key,
-    this.width,
-    this.height,
-    this.onHomeTap,
-    this.onSearchTap,
-    this.onSavedTap,
-  });
-
-  final double? width;
-  final double? height;
-
-  final Future Function()? onHomeTap;
-  final Future Function()? onSearchTap;
-  final Future Function()? onSavedTap;
+  const ZubiaProfile({super.key});
 
   @override
   State<ZubiaProfile> createState() => _ZubiaProfileState();
@@ -604,8 +591,8 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
         value: SystemUiOverlayStyle.dark
             .copyWith(statusBarColor: Colors.transparent),
         child: Container(
-          width: widget.width ?? mq.size.width,
-          height: widget.height ?? mq.size.height,
+          width: mq.size.width,
+          height: mq.size.height,
           color: _bg,
           child: Scaffold(
             backgroundColor: _bg,
@@ -859,7 +846,7 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
               iconColor: _clay,
               title: 'Saved',
               sub: saved == 0 ? 'Tap ♥ on a listing' : '$saved on this phone',
-              onTap: () => widget.onSavedTap?.call(),
+              onTap: () => zubiaOpenTab(context, 2),
             ),
           ),
           const SizedBox(width: 8),
@@ -870,7 +857,7 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
               iconColor: _brand,
               title: 'Search',
               sub: 'Rentals, homes, land',
-              onTap: () => widget.onSearchTap?.call(),
+              onTap: () => zubiaOpenTab(context, 1),
             ),
           ),
         ],
@@ -1148,26 +1135,19 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
         builder: (_, __) => _trueGlass
-            ? ZubiaGlassTabBar(
-                activeIndex: 3,
-                savedCount: _SavedStore().ids.length,
-                onHome: widget.onHomeTap,
-                onSearch: widget.onSearchTap,
-                onSaved: widget.onSavedTap,
-              )
+            ? const ZubiaGlassTabBar(activeIndex: 3)
             : _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
                 child: Row(
                   children: [
-                    _tab(Icons.home_outlined, 'Home', false, widget.onHomeTap,
-                        0),
+                    _tab(Icons.home_outlined, 'Home', false, 0, 0),
                     _tab(Icons.search_rounded, 'Search', false,
-                        widget.onSearchTap, 0),
+                        1, 0),
                     _tab(Icons.favorite_border_rounded, 'Saved', false,
-                        widget.onSavedTap, _SavedStore().ids.length),
-                    _tab(Icons.person_rounded, 'Profile', true, null, 0),
+                        2, _SavedStore().ids.length),
+                    _tab(Icons.person_rounded, 'Profile', true, 3, 0),
                   ],
                 ),
               ),
@@ -1177,7 +1157,7 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
     IconData icon,
     String label,
     bool active,
-    Future Function()? onTap,
+    int index,
     int badge,
   ) {
     final color = active ? _brand : _ink.withOpacity(0.72);
@@ -1185,10 +1165,12 @@ class _ZubiaProfileState extends State<ZubiaProfile> {
     return Expanded(
       child: _Pressable(
         scale: 0.90,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap?.call();
-        },
+        onTap: active
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                zubiaOpenTab(context, index);
+              },
         child: Container(
           height: _tabBarHeight,
           margin: const EdgeInsets.all(4),
