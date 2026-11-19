@@ -20,30 +20,52 @@
     heading are obviously the same colour rather than three decisions.
 
     Every pair below was measured, not judged by eye:
-      white on primary        6.47:1
-      white on primary-dark   9.28:1
-      primary on white        6.47:1
-      primary on surface      6.10:1
-      primary on primary-tint 5.87:1
-      ink on white           15.45:1
-      mint on primary-dark    4.83:1
+      white on primary        7.17:1
+      white on primary-dark   9.34:1
+      primary on white        7.17:1
+      primary on surface      6.79:1
+      primary on primary-tint 6.35:1
+      ink on white           17.40:1
+      ink on action           5.46:1
+      subtle on white         5.48:1
+      sky on primary-dark     4.95:1
+
+    Note the action row: amber takes ink text, not white. White on this
+    amber is 3.46:1 and fails. A button nobody can read is not a button.
   */
-  --zubia-primary: #1a6b4a;      /* Buttons, links, the house icon      */
-  --zubia-primary-dark: #11513a; /* Hovers, nav, deep panels            */
-  --zubia-ink: #10291f;          /* Wordmark, headlines, key text       */
-  --zubia-mint: #74cca4;         /* Accents on the dark green panels    */
-  --zubia-gray: #7d7c7c;         /* Taglines, secondary text            */
-  /* Supporting colour, so the page is not green on green. Green is the
-     action and trust colour; clay carries emphasis and warmth. */
-  --zubia-clay: #a8441f;   /* Clay - eyebrows, tags, featured, emphasis */
+  --zubia-primary: #0a58a2;      /* Brand, links, trust marks           */
+  --zubia-primary-dark: #084785; /* Hovers, nav, deep panels            */
+  --zubia-ink: #0d1b2a;          /* Wordmark, headlines, key text       */
+  --zubia-sky: #8fc2f0;          /* Accents on the dark blue panels     */
+  --zubia-gray: #5a6b7c;         /* Taglines, secondary text            */
+
   /*
-    Warm greys. These were #7d7c7c on #f4f7fc / #e3e9f2, all three tinted
-    blue, which is why every "neutral" area still read as blue. Warming
-    them is most of what takes the blue cast off the site.
+    The action colour, and the point of this palette.
+
+    Blue carries the brand: links, headings, trust marks. Amber carries
+    one thing only - the button you are meant to press. Before this,
+    green did all three jobs at once, and when the same colour marks a
+    heading, a link and a button, nothing on the page reads as "press
+    this".
+
+    So: if it is amber, it is an action. If it is not an action, it is
+    not amber. That rule is worth more than the hue.
   */
-  --zubia-subtle: #6b6560;
-  --zubia-surface: #faf8f5;
-  --zubia-line: #e8e3db;
+  --zubia-action: #d97706;
+  --zubia-action-dark: #b45309;  /* Hover and pressed                   */
+
+  /* Emphasis and warmth: eyebrows, tags, the move-in cost. Muted on
+     purpose, so it never competes with the action amber. */
+  --zubia-clay: #a8441f;
+
+  /*
+    Cool greys, to sit under a blue brand. They were warm sand when the
+    brand was green; keeping them would have left every neutral area
+    looking faintly yellow against the new blue.
+  */
+  --zubia-subtle: #5a6b7c;
+  --zubia-surface: #f7f9fb;
+  --zubia-line: #e2e8f0;
 
   --background: #ffffff;
   --foreground: var(--zubia-ink);
@@ -63,36 +85,44 @@
   --border: var(--zubia-line);
   --input: var(--zubia-line);
   --ring: var(--zubia-primary);
-  --chart-1: #1a6b4a;
-  --chart-2: #11513a;
-  --chart-3: #10291f;
-  --chart-4: #74cca4;
-  --chart-5: #a8441f;
+  --chart-1: #0a58a2;
+  --chart-2: #084785;
+  --chart-3: #0d1b2a;
+  --chart-4: #8fc2f0;
+  --chart-5: #d97706;
   --radius: 0.75rem;
   --sidebar: var(--zubia-ink);
-  --sidebar-foreground: #d7e6de;
+  --sidebar-foreground: #d6e4f2;
   --sidebar-primary: var(--zubia-primary);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1c4a36;
+  --sidebar-accent: #11365c;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #21543d;
-  --sidebar-ring: var(--zubia-mint);
+  --sidebar-border: #1c4572;
+  --sidebar-ring: var(--zubia-sky);
 }
 
 @theme {
   /*
-    One green at three depths. "royal" and "navy" are gone: they were a
+    One blue at three depths. "royal" and "navy" are gone: they were a
     second name for primary-dark and for ink, and two names for one
     colour is how a palette drifts apart.
   */
-  --color-primary-dark: #11513a;
-  --color-ink: #10291f;
-  /* Warm greys - keep in step with the --zubia-* values above. */
-  --color-subtle: #6b6560;
-  --color-surface: #faf8f5;
-  --color-line: #e8e3db;
-  /* Derived from the primary, for accents on the dark green panels. */
-  --color-mint: #74cca4;
+  --color-primary-dark: #084785;
+  --color-ink: #0d1b2a;
+  /* Cool greys - keep in step with the --zubia-* values above. */
+  --color-subtle: #5a6b7c;
+  --color-surface: #f7f9fb;
+  --color-line: #e2e8f0;
+  /* Derived from the primary, for accents on the dark blue panels. */
+  --color-mint: #8fc2f0;
+
+  /*
+    The action colour. Buttons and nothing else — see the note on
+    --zubia-action above. It carries ink text, never white.
+  */
+  --color-action: #d97706;
+  --color-action-dark: #b45309;
+  --color-action-tint: #fef3c7;
 
   /*
     Clay is the one supporting hue: eyebrows, tags and the Featured
@@ -103,11 +133,11 @@
     new primary, and two greens that close together read as one colour
     applied inconsistently. Trust marks now use the primary itself.
   */
-  --color-primary-tint: #edf6f1;
+  --color-primary-tint: #eaf2fb;
   --color-clay: #a8441f;
   --color-clay-tint: #fbf1ec;
-  /* Warm sand, for a band that needs to separate from white without ink. */
-  --color-sand: #f2ece1;
+  /* A cool band that separates from white without going to ink. */
+  --color-sand: #eef3f8;
 
   /* Semantic only (pending status, caution notes) - not a brand colour. */
   --color-warning: #b45309;

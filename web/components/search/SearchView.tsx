@@ -74,7 +74,7 @@ export function SearchView({ listings, filters }: SearchViewProps) {
         {/* Results: scrolls on its own, like Zillow. */}
         <section
           aria-label="Results"
-          className={`${mobileView === "list" ? "block" : "hidden"} w-full overflow-y-auto border-l border-line bg-white px-4 pb-24 pt-5 lg:block lg:w-[min(780px,46%)] lg:pb-8`}
+          className={`${mobileView === "list" ? "block" : "hidden"} w-full overflow-y-auto border-l border-line bg-white px-4 pb-24 pt-3 lg:block lg:w-[min(780px,46%)] lg:pb-8`}
         >
           <h1 className="font-display text-xl font-extrabold text-ink md:text-2xl">{describeSearch(filters)}</h1>
           <div className="mb-4 mt-1 flex flex-wrap items-center justify-between gap-2">

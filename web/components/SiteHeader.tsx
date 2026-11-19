@@ -13,8 +13,17 @@ const RIGHT_LINKS = [
   { href: "/sign-in", label: "Sign in" },
 ];
 
+/*
+  Bolder and tighter than before, with the hover drawn as a filled pill
+  rather than a colour change on the word.
+
+  At medium weight these read as body copy that happens to be clickable;
+  the eye skims past them to the logo. Semibold with tightened tracking
+  makes them register as the navigation, and the pill gives the pointer
+  a target with edges instead of three letters to aim at.
+*/
 const linkClass =
-  "flex min-h-11 items-center rounded-lg px-3 text-[15px] font-medium text-ink hover:text-primary";
+  "flex min-h-11 items-center rounded-lg px-3.5 text-[15px] font-semibold tracking-[-0.01em] text-ink transition-colors hover:bg-primary-tint hover:text-primary";
 
 export function SiteHeader() {
   return (
@@ -65,9 +74,18 @@ export function SiteHeader() {
               </Link>
             ))}
           </nav>
+          {/*
+            Amber, not blue. This is the only action in the header, and
+            the rule for the whole palette is that amber means "press
+            this". In blue it was the same colour as the three links
+            beside it and read as a fourth link.
+
+            Ink text, not white: white on this amber measures 3.46:1 and
+            fails.
+          */}
           <Link
             href="/pricing"
-            className="ml-1 flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-dark"
+            className="ml-2 flex min-h-11 items-center rounded-lg bg-action px-4 text-sm font-bold text-ink transition-colors hover:bg-action-dark hover:text-white"
           >
             <span className="hidden sm:inline">List a property</span>
             <span className="sm:hidden">List</span>
