@@ -15,6 +15,7 @@ import {
   type SearchFilters,
   type SortKey,
 } from "@/lib/search";
+import { MAP_BACKDROP } from "@/lib/mapStyle";
 import type { Listing } from "@/lib/types";
 import { FilterBar } from "./FilterBar";
 
@@ -22,7 +23,12 @@ import { FilterBar } from "./FilterBar";
 const ListingsMap = dynamic(() => import("./ListingsMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full items-center justify-center bg-[#eef2f8] text-sm text-subtle">Loading map…</div>
+    <div
+      className="flex h-full items-center justify-center text-sm text-subtle"
+      style={{ background: MAP_BACKDROP }}
+    >
+      Loading map…
+    </div>
   ),
 });
 

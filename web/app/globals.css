@@ -256,12 +256,20 @@
 .zb-pin--featured {
   background: var(--zubia-clay);
 }
-/* Hover/active is the darkest step, so it reads as selected over both the
-   default and featured pins. */
+/*
+  Hover/active inverts to white with ink text.
+
+  It used to be ink on white-bordered blue, which worked when the map
+  was OpenStreetMap's pale palette. On the dark basemap an ink pin is
+  very nearly the map, so the selected one disappeared into it. White is
+  the one fill that reads as "this one" against dark tiles and against
+  the blue and clay pins either side of it.
+*/
 .zb-pin:hover,
 .zb-pin--active {
-  background: var(--zubia-ink);
-  color: #fff;
+  background: #fff;
+  color: var(--zubia-ink);
+  border-color: var(--zubia-ink);
   transform: translate(-50%, -100%) scale(1.12);
 }
 

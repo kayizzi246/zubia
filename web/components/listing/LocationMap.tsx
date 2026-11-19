@@ -10,6 +10,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useRef } from "react";
 import { addBaseTiles } from "@/lib/map";
+import { MAP_BACKDROP } from "@/lib/mapStyle";
 
 export default function LocationMap({ lat, lng }: { lat: number; lng: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -40,7 +41,8 @@ export default function LocationMap({ lat, lng }: { lat: number; lng: number }) 
   }, [lat, lng]);
 
   return (
-    <div className="relative isolate h-64 overflow-hidden rounded-card bg-[#eef2f8] md:h-80">
+    <div className="relative isolate h-64 overflow-hidden rounded-card md:h-80"
+      style={{ background: MAP_BACKDROP }}>
       <div ref={ref} className="h-full w-full" />
     </div>
   );

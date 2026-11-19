@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import { formatListingPrice, formatPriceShort, formatSize } from "@/lib/format";
 import { addBaseTiles } from "@/lib/map";
+import { MAP_BACKDROP } from "@/lib/mapStyle";
 import type { Listing } from "@/lib/types";
 
 export interface ListingsMapProps {
@@ -119,7 +120,8 @@ export default function ListingsMap({ listings, selectedId, hoveredId, onSelect 
     // `isolate` keeps Leaflet's high z-indexes (400–1000) inside the map, so
     // filter dropdowns and menus can open on top of it.
     <div className="relative isolate h-full w-full">
-      <div ref={containerRef} className="h-full w-full bg-[#eef2f8]" />
+      <div ref={containerRef} className="h-full w-full"
+        style={{ background: MAP_BACKDROP }} />
 
       {/* Overlays sit above Leaflet's layers (z-index 400+). */}
       <div className="pointer-events-none absolute inset-x-3 top-3 z-[500] flex items-start justify-between gap-2">
