@@ -9,7 +9,6 @@ import 'package:flutter/material.dart' hide RepeatMode;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
@@ -36,33 +35,44 @@ const String _apiBase = 'http://localhost:3001';
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKENS — identical in home, search, listing, saved and profile.
+//
+//  Flat and white, in the manner of the big property apps: hairline
+//  rules instead of boxes, bold section headings, generous air, one
+//  accent colour. Nothing frosted; the tab bar floats on a soft lift.
+//
+//  The accent is Zubia's green, not the blue those apps use, so the
+//  phone and web/app/globals.css stay the same product.
 // ═══════════════════════════════════════════════════════════════
 const Color _white = Color(0xFFFFFFFF);
 const Color _bg = Color(0xFFFFFFFF);
-const Color _ink = Color(0xFF10291F);
-const Color _inkSoft = Color(0xFF3B4A42);
-const Color _mid = Color(0xFF6B6560);
-const Color _light = Color(0xFFA8A29B);
-const Color _hairline = Color(0xFFE8E3DB);
-const Color _tile = Color(0xFFFAF8F5);
+
+/// Headings and prices.
+const Color _ink = Color(0xFF0E1C16);
+
+/// Body copy and the facts line.
+const Color _body = Color(0xFF2F3A34);
+
+/// Captions, addresses, anything secondary.
+const Color _mid = Color(0xFF6E7873);
+
+/// Placeholders and disabled glyphs. Never load-bearing.
+const Color _light = Color(0xFFA0A8A4);
+
+/// The hairline. Does the work a card border used to.
+const Color _line = Color(0xFFE4E6E5);
+
+/// The thick grey band that separates one block of content from the
+/// next, instead of a card edge round each.
+const Color _band = Color(0xFFF1F3F2);
+
+const Color _tile = Color(0xFFF6F7F6);
 const Color _brand = Color(0xFF1A6B4A);
-const Color _brandPale = Color(0xFFEDF6F1);
-const Color _mint = Color(0xFF74CCA4);
+const Color _brandPale = Color(0xFFEAF4EF);
 const Color _clay = Color(0xFFA8441F);
 const Color _clayPale = Color(0xFFFBF1EC);
 
 const Cubic _ease = Cubic(0.23, 1, 0.32, 1);
-const double _tabBarHeight = 56;
-
-// WANT THE REAL LIQUID GLASS BAR?
-//
-// This file draws its own glass bar below, which needs no package.
-// To use the shader-based one instead:
-//   1. add  liquid_glass_widgets: ^1.18.0  to the widget dependencies
-//   2. paste glass_tab_bar.dart in as the ZubiaGlassTabBar widget
-//   3. in _tabBar() below, replace the _Glass(...) call with
-//          const ZubiaGlassTabBar(activeIndex: N)
-//      where N is this page's tab: 0 Home, 1 Search, 2 Saved, 3 Profile
+const double _tabBarHeight = 58;
 
 double _ui = 1.0;
 
@@ -72,18 +82,17 @@ bool get _isApple =>
         defaultTargetPlatform == TargetPlatform.macOS);
 
 double _trackingFor(double s) {
-  if (s >= 24) return -0.025;
-  if (s >= 20) return -0.020;
-  if (s >= 17) return -0.013;
-  if (s >= 15) return -0.007;
-  if (s >= 13) return 0.0;
-  return 0.008;
+  if (s >= 24) return -0.022;
+  if (s >= 20) return -0.018;
+  if (s >= 17) return -0.012;
+  if (s >= 15) return -0.006;
+  return 0.0;
 }
 
 TextStyle _font(
   double size, {
   FontWeight weight = FontWeight.w400,
-  Color color = _inkSoft,
+  Color color = _body,
   double height = 1.3,
 }) {
   final s = size * _ui;
@@ -101,136 +110,39 @@ TextStyle _font(
 
 TextStyle _title(double size,
         {FontWeight weight = FontWeight.w700, Color color = _ink}) =>
-    _font(size, weight: weight, color: color, height: 1.15);
+    _font(size, weight: weight, color: color, height: 1.18);
 
 TextStyle _txt(double size,
         {FontWeight weight = FontWeight.w400,
-        Color color = _inkSoft,
+        Color color = _body,
         double height = 1.3}) =>
     _font(size, weight: weight, color: color, height: height);
 
-BoxDecoration _liquid({
-  Color? tint,
-  bool onDark = false,
-  double radius = 999,
-  bool circle = false,
-}) {
-  final List<Color> fill;
-  final Color rim;
-  if (tint != null) {
-    fill = [Color.lerp(tint, _white, 0.20)!, tint];
-    rim = _white.withOpacity(0.40);
-  } else if (onDark) {
-    fill = [_white.withOpacity(0.30), _white.withOpacity(0.12)];
-    rim = _white.withOpacity(0.42);
-  } else {
-    fill = const [_white, Color(0xFFF3F1ED)];
-    rim = _ink.withOpacity(0.10);
-  }
-  return BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: fill,
-    ),
-    shape: circle ? BoxShape.circle : BoxShape.rectangle,
-    borderRadius: circle ? null : BorderRadius.circular(radius),
-    border: Border.all(color: rim, width: 1),
-  );
-}
+/// The soft lift used on the two things that float above the page: the
+/// search bar and the tab bar. Everything else sits flat.
+const List<BoxShadow> _lift = [
+  BoxShadow(color: Color(0x1A0E1C16), blurRadius: 18, offset: Offset(0, 4)),
+  BoxShadow(color: Color(0x0D0E1C16), blurRadius: 3, offset: Offset(0, 1)),
+];
 
-class _GradientRim extends BoxBorder {
-  const _GradientRim(this.gradient, {this.width = 1});
+// ═══════════════════════════════════════════════════════════════
+//  SHARED PIECES
+// ═══════════════════════════════════════════════════════════════
 
-  final Gradient gradient;
-  final double width;
-
-  @override
-  BorderSide get top => BorderSide.none;
-  @override
-  BorderSide get bottom => BorderSide.none;
-  @override
-  EdgeInsetsGeometry get dimensions => EdgeInsets.all(width);
-  @override
-  bool get isUniform => true;
-
-  @override
-  void paint(
-    Canvas canvas,
-    Rect rect, {
-    ui.TextDirection? textDirection,
-    BoxShape shape = BoxShape.rectangle,
-    BorderRadius? borderRadius,
-  }) {
-    final paint = Paint()
-      ..strokeWidth = width
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke;
-    final inner = rect.deflate(width / 2);
-    if (borderRadius != null) {
-      canvas.drawRRect(borderRadius.toRRect(inner), paint);
-    } else {
-      canvas.drawRect(inner, paint);
-    }
-  }
-
-  @override
-  ShapeBorder scale(double t) => _GradientRim(gradient, width: width * t);
-}
-
-class _Glass extends StatelessWidget {
-  const _Glass({
-    required this.child,
-    this.height,
-    this.radius = 22,
-    this.blur = 24,
-  });
-
-  final Widget child;
-  final double? height;
-  final double radius;
-  final double blur;
-
-  @override
-  Widget build(BuildContext context) => ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_white.withOpacity(0.78), _white.withOpacity(0.58)],
-              ),
-              border: _GradientRim(
-                LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [_white.withOpacity(0.95), _ink.withOpacity(0.12)],
-                ),
-              ),
-            ),
-            child: child,
-          ),
-        ),
-      );
-}
-
-class _Pressable extends StatefulWidget {
-  const _Pressable({required this.child, this.onTap, this.scale = 0.96});
+/// Anything tappable: it dims and scales very slightly. Restrained on
+/// purpose — a flat white page with bouncy buttons reads as a toy.
+class _Press extends StatefulWidget {
+  const _Press({required this.child, this.onTap, this.scale = 0.97});
 
   final Widget child;
   final VoidCallback? onTap;
   final double scale;
 
   @override
-  State<_Pressable> createState() => _PressableState();
+  State<_Press> createState() => _PressState();
 }
 
-class _PressableState extends State<_Pressable> {
+class _PressState extends State<_Press> {
   bool _down = false;
 
   void _set(bool v) {
@@ -251,35 +163,171 @@ class _PressableState extends State<_Pressable> {
               },
         child: AnimatedScale(
           scale: _down ? widget.scale : 1.0,
-          duration: Duration(milliseconds: _down ? 100 : 160),
+          duration: Duration(milliseconds: _down ? 90 : 150),
           curve: _ease,
-          child: widget.child,
+          child: AnimatedOpacity(
+            opacity: _down ? 0.7 : 1,
+            duration: const Duration(milliseconds: 90),
+            child: widget.child,
+          ),
         ),
       );
 }
 
-class _GlassArrive extends StatelessWidget {
-  const _GlassArrive({required this.child});
+/// The one primary button: a full-width green pill. Used for the main
+/// action on a screen and nothing else.
+class _PillButton extends StatelessWidget {
+  const _PillButton({
+    required this.label,
+    required this.onTap,
+    this.height = 52,
+    this.expand = true,
+  });
 
-  final Widget child;
+  final String label;
+  final VoidCallback? onTap;
+  final double height;
+  final bool expand;
 
   @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-        tween: Tween(begin: 1, end: 0),
-        duration: const Duration(milliseconds: 300),
-        curve: _ease,
-        child: child,
-        builder: (_, v, ch) => ImageFiltered(
-          enabled: v > 0.01,
-          imageFilter: ui.ImageFilter.blur(
-              sigmaX: 12 * v, sigmaY: 12 * v, tileMode: TileMode.decal),
-          child: Opacity(opacity: 1 - 0.30 * v, child: ch),
+  Widget build(BuildContext context) => _Press(
+        scale: 0.985,
+        onTap: onTap,
+        child: Container(
+          height: height,
+          width: expand ? double.infinity : null,
+          padding: expand ? null : const EdgeInsets.symmetric(horizontal: 24),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _brand,
+            borderRadius: BorderRadius.circular(height / 2),
+          ),
+          child: Text(label,
+              style: _txt(16, weight: FontWeight.w600, color: _white)),
         ),
       );
+}
+
+/// A white pill with a hairline border — "Reset", "Clear all".
+class _GhostPill extends StatelessWidget {
+  const _GhostPill({
+    required this.label,
+    required this.onTap,
+    this.color = _brand,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => _Press(
+        scale: 0.95,
+        onTap: onTap,
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(color: _line),
+          ),
+          child: Text(label,
+              style: _txt(14.5, weight: FontWeight.w600, color: color)),
+        ),
+      );
+}
+
+/// A round icon button on a light fill — back, close.
+class _CircleBtn extends StatelessWidget {
+  const _CircleBtn({
+    required this.icon,
+    required this.onTap,
+    this.size = 38,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => _Press(
+        scale: 0.9,
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: const BoxDecoration(color: _tile, shape: BoxShape.circle),
+          child: Icon(icon, size: size * 0.5, color: _ink),
+        ),
+      );
+}
+
+/// A selectable pill. Flat, not glass: pale green with a green rule
+/// when on, white with a hairline when off.
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.showClear = false,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  /// Draws an ✕ when selected, for the row of applied filters where
+  /// tapping means "take this one off".
+  final bool showClear;
+
+  @override
+  Widget build(BuildContext context) => _Press(
+        scale: 0.95,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: _ease,
+          padding:
+              EdgeInsets.fromLTRB(14, 9, showClear && selected ? 9 : 14, 9),
+          decoration: BoxDecoration(
+            color: selected ? _brandPale : _white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? _brand : _line,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: _txt(14,
+                      weight: FontWeight.w600,
+                      color: selected ? _brand : _body)),
+              if (showClear && selected) ...[
+                const SizedBox(width: 5),
+                const Icon(Icons.close_rounded, size: 15, color: _brand),
+              ],
+            ],
+          ),
+        ),
+      );
+}
+
+/// A bold section heading.
+class _SectionHead extends StatelessWidget {
+  const _SectionHead(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Text(title, style: _title(18));
 }
 
 class _Skeleton extends StatefulWidget {
-  const _Skeleton(this.width, this.height, {this.radius = 12});
+  const _Skeleton(this.width, this.height, {this.radius = 10});
 
   final double width;
   final double height;
@@ -309,45 +357,9 @@ class _SkeletonState extends State<_Skeleton>
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
-            color: Color.lerp(_tile, _hairline, _c.value),
+            color: Color.lerp(_tile, _line, _c.value),
             borderRadius: BorderRadius.circular(widget.radius),
           ),
-        ),
-      );
-}
-
-/// A selectable pill. Replaces Material's ChoiceChip, which brings its
-/// own elevation and ripple and will not sit flat next to glass.
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => _Pressable(
-        scale: 0.94,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: _ease,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: selected
-              ? _liquid(tint: _brand)
-              : BoxDecoration(
-                  color: _tile,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: _hairline),
-                ),
-          child: Text(label,
-              style: _txt(13.5,
-                  weight: FontWeight.w600,
-                  color: selected ? _white : _ink)),
         ),
       );
 }
@@ -426,7 +438,13 @@ class _Listing {
   bool get featured => json['featured'] as bool? ?? false;
   bool get titleChecked => json['titleChecked'] as bool? ?? false;
   bool? get selfContained => json['selfContained'] as bool?;
-  String? get unitType => json['unitType'] as String?;
+
+  /// The server's own wording — "Boys' quarters", not the raw "bq".
+  /// Falling back to the code with its underscores stripped would put
+  /// "bq" on the card, which means nothing to anyone.
+  String? get unitLabel =>
+      (json['unitLabel'] as String?) ??
+      (json['unitType'] as String?)?.replaceAll('_', ' ');
 
   List<String> get photos => ((json['photos'] as List?) ?? const [])
       .map((p) => Uri.parse(_apiBase).resolve(p as String).toString())
@@ -435,23 +453,29 @@ class _Listing {
   int? get moveInTotal =>
       ((json['moveIn'] as Map<String, dynamic>?)?['totalUGX'] as num?)?.toInt();
 
-  String get priceLabel => 'UGX ${_shortUgx(priceUGX)}${isRent ? '/month' : ''}';
+  /// How this price sits against what the area normally asks. The
+  /// server decides; the card only reports it.
+  String? get priceVerdict =>
+      (json['typicalRent'] as Map<String, dynamic>?)?['verdict'] as String?;
 
+  String get priceLabel => 'UGX ${_shortUgx(priceUGX)}${isRent ? '/mo' : ''}';
+
+  /// The facts line, pipe-separated the way every property listing in
+  /// the world sets it.
   String get facts {
     if (isRent) {
-      final parts = <String>[
-        if (unitType != null) unitType!.replaceAll('_', ' '),
+      return <String>[
+        if (unitLabel != null) unitLabel!,
         if (selfContained == true) 'Self-contained',
-      ];
-      if (parts.isEmpty && bedrooms != null) parts.add('$bedrooms bd');
-      return parts.join(' · ');
+        if (bedrooms != null) '$bedrooms bd',
+      ].join('  |  ');
     }
     return <String>[
       if (bedrooms != null) '$bedrooms bds',
       if (bathrooms != null) '$bathrooms ba',
       '$sizeDecimals decimals',
-      type == 'land' ? 'Land for sale' : 'For sale',
-    ].join(' · ');
+      type == 'land' ? 'Land for sale' : 'House for sale',
+    ].join('  |  ');
   }
 
   String get address => '$titleText, $area, $district';
@@ -501,6 +525,7 @@ class _Filters {
     this.type = 'rent',
     this.q = '',
     this.district = '',
+    this.minPrice,
     this.maxPrice,
     this.beds,
     this.titleChecked = false,
@@ -512,6 +537,7 @@ class _Filters {
   final String type;
   final String q;
   final String district;
+  final int? minPrice;
   final int? maxPrice;
   final int? beds;
   final bool titleChecked;
@@ -528,6 +554,7 @@ class _Filters {
     String? type,
     String? q,
     String? district,
+    int? minPrice,
     int? maxPrice,
     int? beds,
     bool? titleChecked,
@@ -536,6 +563,7 @@ class _Filters {
     int? maxMoveIn,
     // Dart cannot tell copyWith(x: null) from copyWith(), so each
     // nullable field needs an explicit way to be cleared.
+    bool clearMinPrice = false,
     bool clearMaxPrice = false,
     bool clearBeds = false,
     bool clearUnit = false,
@@ -545,6 +573,7 @@ class _Filters {
         type: type ?? this.type,
         q: q ?? this.q,
         district: district ?? this.district,
+        minPrice: clearMinPrice ? null : (minPrice ?? this.minPrice),
         maxPrice: clearMaxPrice ? null : (maxPrice ?? this.maxPrice),
         beds: clearBeds ? null : (beds ?? this.beds),
         titleChecked: titleChecked ?? this.titleChecked,
@@ -557,6 +586,7 @@ class _Filters {
     final p = <String, String>{'type': type};
     if (q.trim().isNotEmpty) p['q'] = q.trim();
     if (district.isNotEmpty) p['district'] = district;
+    if (minPrice != null) p['min'] = '$minPrice';
     if (maxPrice != null) p['max'] = '$maxPrice';
     // Bedroom counts mean nothing on a plot of land.
     if (beds != null && type != 'land') p['beds'] = '$beds';
@@ -570,6 +600,44 @@ class _Filters {
   /// How many filters are set beyond the listing type. Drives the badge
   /// on the filter button.
   int get activeCount => toQuery().length - 1;
+
+  /// The applied filters as removable chips, in the order someone would
+  /// read them. Each carries the edit that takes it off again.
+  ///
+  /// Without this row, a filter set three screens ago silently hides
+  /// half the market and there is nothing on screen saying so.
+  List<(String, _Filters)> get chips {
+    final out = <(String, _Filters)>[];
+    if (q.trim().isNotEmpty) out.add((q.trim(), copyWith(q: '')));
+    if (district.isNotEmpty) out.add((district, copyWith(district: '')));
+    if (minPrice != null && maxPrice != null) {
+      out.add((
+        '${_shortUgx(minPrice!)} – ${_shortUgx(maxPrice!)}',
+        copyWith(clearMinPrice: true, clearMaxPrice: true),
+      ));
+    } else if (maxPrice != null) {
+      out.add(('Up to ${_shortUgx(maxPrice!)}', copyWith(clearMaxPrice: true)));
+    } else if (minPrice != null) {
+      out.add(('From ${_shortUgx(minPrice!)}', copyWith(clearMinPrice: true)));
+    }
+    if (maxMoveIn != null) {
+      out.add((
+        'Move in ≤ ${_shortUgx(maxMoveIn!)}',
+        copyWith(clearMaxMoveIn: true),
+      ));
+    }
+    if (beds != null) out.add(('$beds+ bd', copyWith(clearBeds: true)));
+    if (unit != null) {
+      out.add((unit!.replaceAll('_', ' '), copyWith(clearUnit: true)));
+    }
+    if (selfContained) {
+      out.add(('Self-contained', copyWith(selfContained: false)));
+    }
+    if (titleChecked) {
+      out.add(('Title checked', copyWith(titleChecked: false)));
+    }
+    return out;
+  }
 }
 
 class _SavedStore extends ChangeNotifier {
@@ -637,19 +705,18 @@ class ZubiaSearch extends StatefulWidget {
 }
 
 class _ZubiaSearchState extends State<ZubiaSearch> {
-  late _Filters _filters =
-      _Filters(type: ZubiaSearch.openType);
+  late _Filters _filters = _Filters(type: ZubiaSearch.openType);
   final TextEditingController _query = TextEditingController();
+  final ScrollController _scroll = ScrollController();
 
   List<_Listing> _listings = const [];
   int _total = 0;
   bool _loading = true;
   String? _error;
 
-  /// True when Search was pushed on top of another page (Home's hero
-  /// pills and tiles do that), false when it is the Search tab. Decides
-  /// whether there is a back button and whether room is left at the
-  /// bottom for the tab bar.
+  /// True when Search was pushed on top of another page, false when it
+  /// is the Search tab. Decides whether there is a back button and
+  /// whether room is left at the bottom for the tab bar.
   ///
   /// Worked out on the first build and then kept, not asked again every
   /// build: once a listing is pushed on top of the Search tab, the
@@ -669,6 +736,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   @override
   void dispose() {
     _query.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -714,6 +782,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
   void _apply(_Filters next) {
     _filters = next;
+    if (_scroll.hasClients) _scroll.jumpTo(0);
     _load();
   }
 
@@ -748,13 +817,19 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _FiltersSheet(start: _filters, count: _count),
+      builder: (_) => _FiltersSheet(
+        start: _filters,
+        count: _count,
+        // The histogram is drawn from the prices already on screen:
+        // honest, and free — no extra request on a metered connection.
+        prices: _listings.map((l) => l.priceUGX).toList(growable: false),
+      ),
     );
     if (chosen != null) _apply(chosen);
   }
 
   double get _padH =>
-      (MediaQuery.sizeOf(context).width * 0.04).clamp(14.0, 22.0);
+      (MediaQuery.sizeOf(context).width * 0.045).clamp(16.0, 24.0);
 
   @override
   Widget build(BuildContext context) {
@@ -777,19 +852,19 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
             backgroundColor: _bg,
             body: Stack(
               children: [
-                _GlassArrive(
-                  child: Column(
-                    children: [
-                      _controls(mq.padding.top),
-                      Expanded(child: _results(mq.padding.bottom)),
-                    ],
-                  ),
+                Column(
+                  children: [
+                    _searchBar(mq.padding.top),
+                    if (_filters.chips.isNotEmpty) _chipRow(),
+                    const Divider(height: 1, thickness: 1, color: _line),
+                    Expanded(child: _results(mq.padding.bottom)),
+                  ],
                 ),
                 if (!_pushed)
                   Positioned(
-                    left: 14,
-                    right: 14,
-                    bottom: mq.padding.bottom + 8,
+                    left: 16,
+                    right: 16,
+                    bottom: mq.padding.bottom + 10,
                     child: _tabBar(),
                   ),
               ],
@@ -800,177 +875,163 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
     );
   }
 
-  // --- Controls ----------------------------------------------------------
+  // --- Search bar --------------------------------------------------------
 
-  Widget _controls(double top) {
+  /// A floating white bar, the way every property app opens: one field,
+  /// one filter button, nothing else competing.
+  Widget _searchBar(double top) {
     final active = _filters.activeCount;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(_padH, top + 10, _padH, 12),
-      child: Column(
+      padding: EdgeInsets.fromLTRB(_padH, top + 10, _padH, 10),
+      child: Row(
         children: [
-          Row(
-            children: [
-              if (_pushed) ...[
-                _Pressable(
-                  scale: 0.88,
-                  onTap: () => Navigator.of(context).maybePop(),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: _liquid(circle: true),
-                    child: const Icon(Icons.arrow_back_rounded,
-                        size: 19, color: _ink),
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: Container(
-                  height: 46,
-                  padding: const EdgeInsets.only(left: 14, right: 6),
-                  decoration: BoxDecoration(
-                    color: _tile,
-                    borderRadius: BorderRadius.circular(23),
-                    border: Border.all(color: _hairline),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, size: 19, color: _mid),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: TextField(
-                          controller: _query,
-                          textInputAction: TextInputAction.search,
-                          cursorColor: _brand,
-                          style: _txt(14.5, color: _ink),
-                          onSubmitted: (t) =>
-                              _apply(_filters.copyWith(q: t.trim())),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                            hintText: 'Area, district or landmark',
-                            hintStyle: _txt(14.5, color: _light),
-                          ),
-                        ),
-                      ),
-                      if (_query.text.isNotEmpty)
-                        _Pressable(
-                          scale: 0.85,
-                          onTap: () {
-                            _query.clear();
-                            _apply(_filters.copyWith(q: ''));
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Icon(Icons.close_rounded,
-                                size: 17, color: _mid),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+          if (_pushed) ...[
+            _CircleBtn(
+              icon: Icons.arrow_back_rounded,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.only(left: 16, right: 6),
+              decoration: BoxDecoration(
+                color: _white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: _lift,
               ),
-              const SizedBox(width: 8),
-              _Pressable(
-                scale: 0.88,
-                onTap: _openFilters,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: active > 0
-                          ? _liquid(tint: _brand, circle: true)
-                          : _liquid(circle: true),
-                      child: Icon(Icons.tune_rounded,
-                          size: 20, color: active > 0 ? _white : _ink),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, size: 20, color: _mid),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _query,
+                      textInputAction: TextInputAction.search,
+                      cursorColor: _brand,
+                      style: _txt(15, color: _ink),
+                      onSubmitted: (t) => _apply(_filters.copyWith(q: t.trim())),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: 'Area, district or landmark',
+                        hintStyle: _txt(15, color: _light),
+                      ),
                     ),
-                    if (active > 0)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          constraints: const BoxConstraints(minWidth: 17),
-                          decoration: BoxDecoration(
-                            color: _clay,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: _white, width: 1.5),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text('$active',
-                              style: _txt(10,
-                                  weight: FontWeight.w700,
-                                  color: _white,
-                                  height: 1.2)),
-                        ),
+                  ),
+                  if (_query.text.isNotEmpty)
+                    _Press(
+                      scale: 0.85,
+                      onTap: () {
+                        _query.clear();
+                        _apply(_filters.copyWith(q: ''));
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(7),
+                        child: Icon(Icons.close_rounded, size: 18, color: _mid),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
-
-          const SizedBox(height: 12),
-
-          // The listing type stays visible: rent, buy and land are three
-          // different products, and landing on the wrong one is the
-          // quickest way to think the app is empty.
-          Row(
-            children: [
-              for (final o in const [
-                ('rent', 'For rent'),
-                ('buy', 'For sale'),
-                ('land', 'Land'),
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _Chip(
-                    label: o.$2,
-                    selected: _filters.type == o.$1,
-                    onTap: () => _apply(
-                      _filters.copyWith(
-                        type: o.$1,
-                        // Price bands differ by an order of magnitude
-                        // between rent and land, so a kept range would
-                        // return nothing at all.
-                        clearMaxPrice: true,
-                        clearMaxMoveIn: true,
+          const SizedBox(width: 10),
+          _Press(
+            scale: 0.9,
+            onTap: _openFilters,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: _white,
+                    shape: BoxShape.circle,
+                    boxShadow: _lift,
+                  ),
+                  child: Icon(Icons.tune_rounded,
+                      size: 21, color: active > 0 ? _brand : _ink),
+                ),
+                if (active > 0)
+                  Positioned(
+                    right: -1,
+                    top: -1,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      constraints: const BoxConstraints(minWidth: 18),
+                      decoration: BoxDecoration(
+                        color: _brand,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: _white, width: 1.5),
                       ),
+                      alignment: Alignment.center,
+                      child: Text('$active',
+                          style: _txt(10.5,
+                              weight: FontWeight.w700,
+                              color: _white,
+                              height: 1.2)),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
+  /// The applied filters, each removable with one tap.
+  Widget _chipRow() => SizedBox(
+        height: 46,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(_padH, 0, _padH, 8),
+          children: [
+            for (final c in _filters.chips) ...[
+              _Chip(
+                label: c.$1,
+                selected: true,
+                showClear: true,
+                onTap: () => _apply(c.$2),
+              ),
+              const SizedBox(width: 8),
+            ],
+            _GhostPill(
+              label: 'Clear all',
+              color: _mid,
+              onTap: () => _apply(_Filters(type: _filters.type)),
+            ),
+          ],
+        ),
+      );
+
   // --- Results -----------------------------------------------------------
 
   Widget _results(double safeBottom) {
-    final bottom =
-        _pushed ? safeBottom + 24 : safeBottom + _tabBarHeight + 24;
+    final bottom = _pushed ? safeBottom + 28 : safeBottom + _tabBarHeight + 28;
     final cardW = MediaQuery.sizeOf(context).width - _padH * 2;
 
     if (_loading) {
       return ListView.separated(
         physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(_padH, 4, _padH, bottom),
+        padding: EdgeInsets.fromLTRB(_padH, 16, _padH, bottom),
         itemCount: 3,
-        separatorBuilder: (_, __) => const SizedBox(height: 22),
+        separatorBuilder: (_, __) => const SizedBox(height: 26),
         itemBuilder: (_, __) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Skeleton(cardW, cardW / 1.5, radius: 18),
+            _Skeleton(cardW, cardW / 1.6, radius: 12),
             const SizedBox(height: 12),
-            const _Skeleton(140, 18, radius: 7),
-            const SizedBox(height: 8),
-            const _Skeleton(200, 12, radius: 6),
+            const _Skeleton(150, 20, radius: 6),
+            const SizedBox(height: 9),
+            const _Skeleton(210, 13, radius: 5),
+            const SizedBox(height: 7),
+            const _Skeleton(170, 13, radius: 5),
           ],
         ),
       );
@@ -990,10 +1051,10 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
     if (_listings.isEmpty) {
       return _state(
-        icon: Icons.travel_explore_rounded,
+        icon: Icons.search_off_rounded,
         iconBg: _brandPale,
         iconColor: _brand,
-        title: 'Nothing matches that yet',
+        title: 'No matches yet',
         body: 'Try a higher budget, a different room type, or a nearby area.',
         action: _filters.activeCount > 0 ? 'Clear filters' : null,
         onAction: _filters.activeCount > 0
@@ -1003,19 +1064,23 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
     }
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics()),
+      controller: _scroll,
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: EdgeInsets.fromLTRB(_padH, 0, _padH, bottom),
       itemCount: _listings.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: 22),
+      separatorBuilder: (_, __) => const SizedBox(height: 26),
       itemBuilder: (_, i) {
         if (i == 0) {
-          return Text(
-            '$_total ${_filters.type == 'rent' ? 'rentals' : 'listings'} available',
-            style: _txt(13, weight: FontWeight.w600, color: _mid),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 2),
+            child: Text(
+              '$_total ${_filters.type == 'rent' ? 'rentals' : 'listings'} available',
+              style: _title(17),
+            ),
           );
         }
-        return _card(_listings[i - 1], cardW);
+        return _card(_listings[i - 1]);
       },
     );
   }
@@ -1031,38 +1096,26 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   }) =>
       Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(36),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 76,
-                height: 76,
-                decoration:
-                    BoxDecoration(color: iconBg, shape: BoxShape.circle),
-                child: Icon(icon, size: 32, color: iconColor),
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+                child: Icon(icon, size: 30, color: iconColor),
               ),
-              const SizedBox(height: 16),
-              Text(title, style: _title(19), textAlign: TextAlign.center),
+              const SizedBox(height: 18),
+              Text(title, style: _title(20), textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(body,
                   textAlign: TextAlign.center,
-                  style: _txt(13.5, color: _mid, height: 1.5)),
+                  style: _txt(15, color: _mid, height: 1.5)),
               if (action != null && onAction != null) ...[
-                const SizedBox(height: 20),
-                _Pressable(
-                  scale: 0.98,
-                  onTap: onAction,
-                  child: Container(
-                    height: 46,
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    alignment: Alignment.center,
-                    decoration: _liquid(tint: _brand, radius: 23),
-                    child: Text(action,
-                        style:
-                            _txt(15, weight: FontWeight.w600, color: _white)),
-                  ),
-                ),
+                const SizedBox(height: 22),
+                _PillButton(
+                    label: action, onTap: onAction, expand: false, height: 46),
               ],
             ],
           ),
@@ -1071,20 +1124,24 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
   // --- One card ----------------------------------------------------------
 
-  Widget _card(_Listing l, double width) {
+  /// Photo, price, facts, address — in that order, the way the big
+  /// property apps set it. Flat: no border, no shadow. The photo's own
+  /// rounded corner is what separates one card from the next.
+  Widget _card(_Listing l) {
     final photos = l.photos;
+    final badge = _badge(l);
 
-    return _Pressable(
-      scale: 0.98,
+    return _Press(
+      scale: 0.99,
       onTap: () => _openListing(l.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
-              aspectRatio: 3 / 2,
+              aspectRatio: 16 / 10,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -1102,143 +1159,171 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
                             color: _light, size: 28),
                       ),
                     ),
-                  if (l.featured)
-                    Positioned(
-                        left: 10, top: 10, child: _tag('Featured', solid: true))
-                  else if (l.selfContained == true)
-                    Positioned(
-                        left: 10, top: 10, child: _tag('Self-contained'))
-                  else if (l.titleChecked)
-                    Positioned(left: 10, top: 10, child: _tag('Title checked')),
+
+                  // One badge, top left. More than one and the photo
+                  // stops being a photo.
+                  if (badge != null)
+                    Positioned(left: 12, top: 12, child: badge),
+
                   Positioned(
-                    right: 8,
-                    top: 8,
+                    right: 10,
+                    top: 10,
                     child: ListenableBuilder(
                       listenable: _SavedStore(),
                       builder: (_, __) {
                         final saved = _SavedStore().isSaved(l.id);
-                        return _Pressable(
+                        return _Press(
                           scale: 0.82,
                           onTap: () => _SavedStore().toggle(l.id),
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            decoration: _liquid(circle: true, onDark: true),
-                            child: Icon(
-                              saved
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              size: 18,
-                              color: saved ? _mint : _white,
-                            ),
+                          child: Icon(
+                            saved
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            size: 27,
+                            color: saved ? _clay : _white,
+                            shadows: const [
+                              Shadow(color: Color(0x80000000), blurRadius: 6),
+                            ],
                           ),
                         );
                       },
                     ),
                   ),
+
+                  if (photos.length > 1)
+                    Positioned(
+                      bottom: 10,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0;
+                              i < (photos.length > 5 ? 5 : photos.length);
+                              i++)
+                            Container(
+                              width: 5,
+                              height: 5,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 2.5),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color:
+                                    i == 0 ? _white : _white.withOpacity(0.55),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(l.priceLabel, style: _title(20)),
-          const SizedBox(height: 3),
+          const SizedBox(height: 11),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(l.priceLabel, style: _title(21, weight: FontWeight.w800)),
+              if (l.moveInTotal != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Move in ${_fullUgx(l.moveInTotal!)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _txt(13, weight: FontWeight.w600, color: _clay),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 5),
           Text(l.facts,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _txt(13, color: _inkSoft)),
-          if (l.moveInTotal != null) ...[
-            const SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: _clayPale,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Text('Move in ${_fullUgx(l.moveInTotal!)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _txt(11.5, weight: FontWeight.w600, color: _clay)),
-            ),
-          ],
-          const SizedBox(height: 5),
+              style: _txt(14.5, color: _body)),
+          const SizedBox(height: 3),
           Text(l.address,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _txt(12.5, color: _mid, height: 1.35)),
+              style: _txt(14.5, color: _mid)),
         ],
       ),
     );
   }
 
-  Widget _tag(String label, {bool solid = false}) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: solid
-            ? BoxDecoration(
-                color: _clay,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _white.withOpacity(0.35)),
-              )
-            : _liquid(onDark: true, radius: 8),
+  /// The single badge a card may carry, in order of what a renter most
+  /// needs to know. "Good price" is the server's verdict, not ours.
+  Widget? _badge(_Listing l) {
+    if (l.priceVerdict == 'low') return _photoPill('Good price', color: _brand);
+    if (l.featured) return _photoPill('Featured', color: _clay);
+    if (l.selfContained == true) return _photoPill('Self-contained');
+    if (l.titleChecked) return _photoPill('Title checked');
+    return null;
+  }
+
+  /// A white pill on the photo. Dark text on white reads at any photo
+  /// brightness, which white-on-translucent does not.
+  Widget _photoPill(String label, {Color? color}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _white,
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Text(label,
-            style: _txt(10.5, weight: FontWeight.w700, color: _white)),
+            style: _txt(12, weight: FontWeight.w700, color: color ?? _ink)),
       );
 
   // --- Tab bar -----------------------------------------------------------
 
+  /// A floating white pill with a soft lift, in the manner of the big
+  /// property apps. No blur, which also keeps long lists smooth on a
+  /// cheap phone.
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
-        builder: (_, __) => _Glass(
-                height: _tabBarHeight,
-                radius: _tabBarHeight / 2,
-                blur: 26,
-                child: Row(
-                  children: [
-                    _tab(Icons.home_outlined, 'Home', false, 0, 0),
-                    _tab(Icons.search_rounded, 'Search', true, 1, 0),
-                    _tab(Icons.favorite_border_rounded, 'Saved', false, 2,
-                        _SavedStore().ids.length),
-                    _tab(Icons.person_outline_rounded, 'Profile', false, 3, 0),
-                  ],
-                ),
-              ),
+        builder: (_, __) => Container(
+          height: _tabBarHeight,
+          decoration: BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.circular(_tabBarHeight / 2),
+            boxShadow: _lift,
+          ),
+          child: Row(
+            children: [
+              _tab(Icons.home_outlined, Icons.home_rounded, 'Home', false, 0, 0),
+              _tab(Icons.search_rounded, Icons.search_rounded, 'Search', true, 1,
+                  0),
+              _tab(Icons.favorite_border_rounded, Icons.favorite_rounded,
+                  'Saved', false, 2, _SavedStore().ids.length),
+              _tab(Icons.person_outline_rounded, Icons.person_rounded, 'Profile',
+                  false, 3, 0),
+            ],
+          ),
+        ),
       );
 
   Widget _tab(
     IconData icon,
+    IconData activeIcon,
     String label,
     bool active,
     int index,
     int badge,
   ) {
-    final color = active ? _brand : _ink.withOpacity(0.72);
+    final color = active ? _brand : _mid;
 
     return Expanded(
-      child: _Pressable(
-        scale: 0.90,
+      child: _Press(
+        scale: 0.92,
         onTap: active
             ? null
             : () {
                 HapticFeedback.selectionClick();
                 ZubiaHome.openTab(context, index);
               },
-        child: Container(
+        child: SizedBox(
           height: _tabBarHeight,
-          margin: const EdgeInsets.all(4),
-          decoration: active
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular((_tabBarHeight - 8) / 2),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      _brand.withOpacity(0.20),
-                      _brand.withOpacity(0.10),
-                    ],
-                  ),
-                  border: Border.all(color: _white.withOpacity(0.85)),
-                )
-              : null,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1247,10 +1332,12 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Icon(icon, size: 21, color: color),
+                    Icon(active ? activeIcon : icon, size: 22, color: color),
+                    // The count only appears when there is something to
+                    // count, so the tab never nags for nothing.
                     if (badge > 0)
                       Positioned(
-                        right: -7,
+                        right: -8,
                         top: -3,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -1259,8 +1346,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
                           decoration: BoxDecoration(
                             color: _clay,
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                                color: _white.withOpacity(0.9), width: 1),
+                            border: Border.all(color: _white, width: 1.5),
                           ),
                           alignment: Alignment.center,
                           child: Text(badge > 99 ? '99+' : '$badge',
@@ -1273,13 +1359,13 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
                   ],
                 ),
               ),
-              const SizedBox(height: 1),
+              const SizedBox(height: 2),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(label,
                     maxLines: 1,
-                    style: _txt(9.5,
-                        weight: active ? FontWeight.w600 : FontWeight.w500,
+                    style: _txt(10.5,
+                        weight: active ? FontWeight.w700 : FontWeight.w500,
                         color: color,
                         height: 1.1)),
               ),
@@ -1300,10 +1386,18 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 // ═══════════════════════════════════════════════════════════════
 
 class _FiltersSheet extends StatefulWidget {
-  const _FiltersSheet({required this.start, required this.count});
+  const _FiltersSheet({
+    required this.start,
+    required this.count,
+    required this.prices,
+  });
 
   final _Filters start;
   final Future<int?> Function(_Filters) count;
+
+  /// The prices currently on screen, for the histogram above the
+  /// slider.
+  final List<int> prices;
 
   @override
   State<_FiltersSheet> createState() => _FiltersSheetState();
@@ -1311,6 +1405,11 @@ class _FiltersSheet extends StatefulWidget {
 
 class _FiltersSheetState extends State<_FiltersSheet> {
   late _Filters _draft = widget.start;
+
+  late final TextEditingController _min = TextEditingController(
+      text: widget.start.minPrice == null ? '' : '${widget.start.minPrice}');
+  late final TextEditingController _max = TextEditingController(
+      text: widget.start.maxPrice == null ? '' : '${widget.start.maxPrice}');
 
   int? _count;
   bool _counting = false;
@@ -1325,7 +1424,22 @@ class _FiltersSheetState extends State<_FiltersSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _min.dispose();
+    _max.dispose();
     super.dispose();
+  }
+
+  /// The top of the slider's range: whichever is higher, the dearest
+  /// price band the server offers or the dearest place on screen, plus
+  /// a tenth so the handle has somewhere to go.
+  double get _ceiling {
+    final steps = _Meta.current?.stepsFor(_draft.type) ?? const <int>[];
+    final fromSteps = steps.isEmpty ? 0 : steps.last;
+    final fromPrices = widget.prices.isEmpty
+        ? 0
+        : widget.prices.reduce((a, b) => a > b ? a : b);
+    final top = (fromSteps > fromPrices ? fromSteps : fromPrices).toDouble();
+    return top <= 0 ? 1000000 : top * 1.1;
   }
 
   /// Tapping through filters fires on every change. Without this the
@@ -1347,222 +1461,263 @@ class _FiltersSheetState extends State<_FiltersSheet> {
     });
   }
 
+  void _setRange(RangeValues v) {
+    final top = _ceiling.round();
+    final lo = v.start.round();
+    final hi = v.end.round();
+    _min.text = lo <= 0 ? '' : '$lo';
+    _max.text = hi >= top ? '' : '$hi';
+    _update(_draft.copyWith(
+      minPrice: lo <= 0 ? null : lo,
+      maxPrice: hi >= top ? null : hi,
+      clearMinPrice: lo <= 0,
+      clearMaxPrice: hi >= top,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     _ui = (mq.size.width / 390).clamp(0.86, 1.08);
     final meta = _Meta.current;
     final isRent = _draft.type == 'rent';
+    final ceiling = _ceiling;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.9,
+      initialChildSize: 0.92,
       minChildSize: 0.5,
-      maxChildSize: 0.95,
+      maxChildSize: 0.96,
       expand: false,
       builder: (context, controller) => Container(
         decoration: const BoxDecoration(
           color: _white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
-              decoration: BoxDecoration(
-                color: _hairline,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(
                 children: [
-                  _Pressable(
-                    scale: 0.88,
+                  _CircleBtn(
+                    icon: Icons.arrow_back_rounded,
+                    size: 36,
                     onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: _liquid(circle: true),
-                      child: const Icon(Icons.close_rounded,
-                          size: 17, color: _ink),
-                    ),
                   ),
                   Expanded(
                     child: Text('Filters',
-                        textAlign: TextAlign.center, style: _title(17)),
+                        textAlign: TextAlign.center, style: _title(18)),
                   ),
-                  _Pressable(
-                    scale: 0.92,
-                    onTap: () => _update(_Filters(type: _draft.type)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 8),
-                      child: Text('Reset',
-                          style: _txt(14,
-                              weight: FontWeight.w600, color: _brand)),
-                    ),
+                  _GhostPill(
+                    label: 'Reset',
+                    onTap: () {
+                      _min.clear();
+                      _max.clear();
+                      _update(_Filters(type: _draft.type));
+                    },
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: _hairline),
+            const Divider(height: 1, thickness: 1, color: _line),
+
             Expanded(
               child: ListView(
                 controller: controller,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                padding: const EdgeInsets.only(bottom: 24),
                 children: [
-                  Text(isRent ? 'Monthly rent' : 'Price', style: _title(17)),
-                  const SizedBox(height: 12),
-                  _valueChips(
-                    labels: [
-                      for (final s in meta?.stepsFor(_draft.type) ?? const [])
-                        'Up to ${_shortUgx(s)}',
-                    ],
-                    values: meta?.stepsFor(_draft.type) ?? const [],
-                    selected: _draft.maxPrice,
-                    onChanged: (v) => _update(v == null
-                        ? _draft.copyWith(clearMaxPrice: true)
-                        : _draft.copyWith(maxPrice: v)),
-                  ),
+                  _block([
+                    _SectionHead(isRent ? 'Monthly rent' : 'Price'),
+                    const SizedBox(height: 14),
+                    _PriceHistogram(
+                      prices: widget.prices,
+                      ceiling: ceiling,
+                      from: (_draft.minPrice ?? 0).toDouble(),
+                      to: (_draft.maxPrice ?? ceiling.round()).toDouble(),
+                    ),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        activeTrackColor: _brand,
+                        inactiveTrackColor: _line,
+                        thumbColor: _white,
+                        overlayColor: _brand.withOpacity(0.12),
+                        rangeThumbShape: const RoundRangeSliderThumbShape(
+                            enabledThumbRadius: 11, elevation: 2),
+                        showValueIndicator: ShowValueIndicator.never,
+                      ),
+                      child: RangeSlider(
+                        min: 0,
+                        max: ceiling,
+                        values: RangeValues(
+                          (_draft.minPrice ?? 0).toDouble().clamp(0, ceiling),
+                          (_draft.maxPrice ?? ceiling.round())
+                              .toDouble()
+                              .clamp(0, ceiling),
+                        ),
+                        onChanged: _setRange,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _MoneyField(
+                            controller: _min,
+                            hint: 'No min',
+                            label: 'Min',
+                            onDone: (v) => _update(v == null
+                                ? _draft.copyWith(clearMinPrice: true)
+                                : _draft.copyWith(minPrice: v)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MoneyField(
+                            controller: _max,
+                            hint: 'No max',
+                            label: 'Max',
+                            onDone: (v) => _update(v == null
+                                ? _draft.copyWith(clearMaxPrice: true)
+                                : _draft.copyWith(maxPrice: v)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ]),
 
                   if (isRent) ...[
-                    const SizedBox(height: 28),
-                    Text('Cash you can raise to move in', style: _title(17)),
-                    const SizedBox(height: 5),
-                    // Monthly rent is not what stops people moving: the
-                    // advance, deposit and broker's cut together are,
-                    // and they routinely come to four or five months of
-                    // rent in one payment.
-                    Text('Advance, deposit and any broker fee together.',
-                        style: _txt(12.5, color: _mid, height: 1.45)),
-                    const SizedBox(height: 12),
-                    _valueChips(
-                      labels: [
-                        for (final s in meta?.moveInSteps ?? const [])
-                          'Up to ${_shortUgx(s)}',
-                      ],
-                      values: meta?.moveInSteps ?? const [],
-                      selected: _draft.maxMoveIn,
-                      onChanged: (v) => _update(v == null
-                          ? _draft.copyWith(clearMaxMoveIn: true)
-                          : _draft.copyWith(maxMoveIn: v)),
-                    ),
+                    _bandGap(),
+                    _block([
+                      const _SectionHead('Cash to move in'),
+                      const SizedBox(height: 4),
+                      // Monthly rent is not what stops people moving:
+                      // the advance, deposit and broker's cut together
+                      // are, and they routinely come to four or five
+                      // months of rent in one payment.
+                      Text('Advance, deposit and any broker fee together.',
+                          style: _txt(14, color: _mid, height: 1.45)),
+                      const SizedBox(height: 14),
+                      _valueChips(
+                        labels: [
+                          for (final s in meta?.moveInSteps ?? const <int>[])
+                            'Up to ${_shortUgx(s)}',
+                        ],
+                        values: meta?.moveInSteps ?? const <int>[],
+                        selected: _draft.maxMoveIn,
+                        onChanged: (v) => _update(v == null
+                            ? _draft.copyWith(clearMaxMoveIn: true)
+                            : _draft.copyWith(maxMoveIn: v)),
+                      ),
+                    ]),
+                    _bandGap(),
+                    _block([
+                      const _SectionHead('Room type'),
+                      const SizedBox(height: 4),
+                      Text(
+                        'What people here actually search by — a single room '
+                        'and a one bedroom are different products at '
+                        'different prices.',
+                        style: _txt(14, color: _mid, height: 1.45),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 10,
+                        children: [
+                          for (final u
+                              in meta?.unitTypes ?? const <Map<String, dynamic>>[])
+                            _Chip(
+                              // The local word in brackets, because
+                              // "muzigo" is what people say out loud.
+                              label: u['localName'] == null
+                                  ? '${u['label']}'
+                                  : '${u['label']} (${u['localName']})',
+                              selected: _draft.unit == u['value'],
+                              onTap: () => _update(
+                                _draft.unit == u['value']
+                                    ? _draft.copyWith(clearUnit: true)
+                                    : _draft.copyWith(
+                                        unit: u['value'] as String),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _switchRow(
+                        title: 'Self-contained only',
+                        sub: 'Toilet and shower inside the unit',
+                        value: _draft.selfContained,
+                        onChanged: (v) =>
+                            _update(_draft.copyWith(selfContained: v)),
+                      ),
+                    ]),
+                  ] else ...[
+                    _bandGap(),
+                    _block([
+                      const _SectionHead('Bedrooms'),
+                      const SizedBox(height: 14),
+                      _valueChips(
+                        labels: const ['1+', '2+', '3+', '4+', '5+'],
+                        values: const [1, 2, 3, 4, 5],
+                        selected: _draft.beds,
+                        onChanged: (v) => _update(v == null
+                            ? _draft.copyWith(clearBeds: true)
+                            : _draft.copyWith(beds: v)),
+                      ),
+                      const SizedBox(height: 18),
+                      _switchRow(
+                        title: 'Title checked only',
+                        sub: 'We searched the title at the land registry',
+                        value: _draft.titleChecked,
+                        onChanged: (v) =>
+                            _update(_draft.copyWith(titleChecked: v)),
+                      ),
+                    ]),
+                  ],
 
-                    const SizedBox(height: 28),
-                    Text('Room type', style: _title(17)),
-                    const SizedBox(height: 5),
-                    Text(
-                      'What people here actually search by — a single room '
-                      'and a one bedroom are different products at different '
-                      'prices.',
-                      style: _txt(12.5, color: _mid, height: 1.45),
-                    ),
-                    const SizedBox(height: 12),
+                  _bandGap(),
+                  _block([
+                    const _SectionHead('District'),
+                    const SizedBox(height: 14),
                     Wrap(
                       spacing: 8,
-                      runSpacing: 8,
+                      runSpacing: 10,
                       children: [
-                        for (final u in meta?.unitTypes ?? const [])
+                        for (final d in meta?.districts ?? const <String>[])
                           _Chip(
-                            // The local word in brackets, because
-                            // "muzigo" is what people say out loud.
-                            label: u['localName'] == null
-                                ? '${u['label']}'
-                                : '${u['label']} (${u['localName']})',
-                            selected: _draft.unit == u['value'],
-                            onTap: () => _update(
-                              _draft.unit == u['value']
-                                  ? _draft.copyWith(clearUnit: true)
-                                  : _draft.copyWith(
-                                      unit: u['value'] as String),
-                            ),
+                            label: d,
+                            selected: _draft.district == d,
+                            onTap: () => _update(_draft.copyWith(
+                                district: _draft.district == d ? '' : d)),
                           ),
                       ],
                     ),
-
-                    const SizedBox(height: 20),
-                    _switchTile(
-                      title: 'Self-contained only',
-                      sub: 'Toilet and shower inside the unit',
-                      value: _draft.selfContained,
-                      onChanged: (v) =>
-                          _update(_draft.copyWith(selfContained: v)),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 28),
-                    Text('Bedrooms', style: _title(17)),
-                    const SizedBox(height: 12),
-                    _valueChips(
-                      labels: const ['1+', '2+', '3+', '4+', '5+'],
-                      values: const [1, 2, 3, 4, 5],
-                      selected: _draft.beds,
-                      onChanged: (v) => _update(v == null
-                          ? _draft.copyWith(clearBeds: true)
-                          : _draft.copyWith(beds: v)),
-                    ),
-                    const SizedBox(height: 20),
-                    _switchTile(
-                      title: 'Title checked only',
-                      sub: 'We searched the title at the land registry',
-                      value: _draft.titleChecked,
-                      onChanged: (v) =>
-                          _update(_draft.copyWith(titleChecked: v)),
-                    ),
-                  ],
-
-                  const SizedBox(height: 28),
-                  Text('District', style: _title(17)),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final d in meta?.districts ?? const [])
-                        _Chip(
-                          label: d,
-                          selected: _draft.district == d,
-                          onTap: () => _update(_draft.copyWith(
-                              district: _draft.district == d ? '' : d)),
-                        ),
-                    ],
-                  ),
+                  ]),
                 ],
               ),
             ),
+
             Container(
               decoration: const BoxDecoration(
                 color: _white,
-                border: Border(top: BorderSide(color: _hairline)),
+                border: Border(top: BorderSide(color: _line)),
               ),
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                  child: _Pressable(
-                    scale: 0.98,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: _PillButton(
+                    label: _counting
+                        ? 'Counting…'
+                        : _count == null
+                            ? 'See results'
+                            : 'See $_count ${_count == 1 ? 'result' : 'results'}',
                     // Live even on zero: disabling it would trap someone
                     // who has over-filtered with no way out but close.
                     onTap: () => Navigator.of(context).pop(_draft),
-                    child: Container(
-                      height: 52,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      decoration: _liquid(tint: _brand, radius: 26),
-                      child: Text(
-                        _counting
-                            ? 'Counting…'
-                            : _count == null
-                                ? 'See results'
-                                : 'See $_count ${_count == 1 ? 'result' : 'results'}',
-                        style:
-                            _txt(15, weight: FontWeight.w600, color: _white),
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -1573,6 +1728,18 @@ class _FiltersSheetState extends State<_FiltersSheet> {
     );
   }
 
+  Widget _block(List<Widget> children) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      );
+
+  /// The thick grey rule between groups of filters — cheaper to read
+  /// than a card edge round each one.
+  Widget _bandGap() => Container(height: 8, color: _band);
+
   /// A wrapping row of values where tapping the selected one clears it.
   Widget _valueChips({
     required List<String> labels,
@@ -1582,7 +1749,7 @@ class _FiltersSheetState extends State<_FiltersSheet> {
   }) =>
       Wrap(
         spacing: 8,
-        runSpacing: 8,
+        runSpacing: 10,
         children: [
           for (var i = 0; i < labels.length && i < values.length; i++)
             _Chip(
@@ -1593,38 +1760,153 @@ class _FiltersSheetState extends State<_FiltersSheet> {
         ],
       );
 
-  Widget _switchTile({
+  Widget _switchRow({
     required String title,
     required String sub,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) =>
-      Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-        decoration: BoxDecoration(
-          color: _tile,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style:
-                          _txt(14.5, weight: FontWeight.w600, color: _ink)),
-                  const SizedBox(height: 2),
-                  Text(sub, style: _txt(12, color: _mid, height: 1.35)),
-                ],
+      Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: _txt(16, weight: FontWeight.w600, color: _ink)),
+                const SizedBox(height: 2),
+                Text(sub, style: _txt(13.5, color: _mid, height: 1.35)),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeColor: _brand,
+          ),
+        ],
+      );
+}
+
+/// A price box with its own label above it.
+class _MoneyField extends StatelessWidget {
+  const _MoneyField({
+    required this.controller,
+    required this.hint,
+    required this.label,
+    required this.onDone,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final String label;
+  final void Function(int?) onDone;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: _txt(13.5, weight: FontWeight.w600, color: _mid)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            cursorColor: _brand,
+            style: _txt(16, color: _ink),
+            onSubmitted: (v) => onDone(int.tryParse(v)),
+            onEditingComplete: () => onDone(int.tryParse(controller.text)),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: _txt(16, color: _light),
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _line),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _line),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _brand, width: 1.6),
               ),
             ),
-            Switch.adaptive(
-              value: value,
-              onChanged: onChanged,
-              activeColor: _brand,
-            ),
-          ],
-        ),
+          ),
+        ],
       );
+}
+
+/// The bars above the price slider: how many of the places on screen
+/// sit in each price band.
+///
+/// Drawn from the results already loaded rather than from a separate
+/// request, so it costs nothing on a metered connection. It is a shape,
+/// not a statistic — enough to show where the market actually is before
+/// someone drags the handle somewhere empty.
+class _PriceHistogram extends StatelessWidget {
+  const _PriceHistogram({
+    required this.prices,
+    required this.ceiling,
+    required this.from,
+    required this.to,
+  });
+
+  final List<int> prices;
+  final double ceiling;
+  final double from;
+  final double to;
+
+  static const int _buckets = 28;
+
+  @override
+  Widget build(BuildContext context) {
+    if (prices.isEmpty || ceiling <= 0) return const SizedBox(height: 56);
+
+    final counts = List<int>.filled(_buckets, 0);
+    for (final p in prices) {
+      var i = (p / ceiling * _buckets).floor();
+      if (i < 0) i = 0;
+      if (i >= _buckets) i = _buckets - 1;
+      counts[i]++;
+    }
+    final peak = counts.reduce((a, b) => a > b ? a : b);
+    if (peak == 0) return const SizedBox(height: 56);
+
+    return SizedBox(
+      height: 56,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < _buckets; i++)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                child: Container(
+                  // A band with nothing in it still gets a sliver, so
+                  // the row reads as a range rather than as gaps.
+                  height: (counts[i] / peak * 52).clamp(3.0, 52.0),
+                  decoration: BoxDecoration(
+                    // Bars inside the chosen range are green, the rest
+                    // grey, so the slider and the shape agree at a
+                    // glance.
+                    color: _inRange(i) ? _brand : _line,
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _inRange(int i) {
+    final lo = i / _buckets * ceiling;
+    final hi = (i + 1) / _buckets * ceiling;
+    return hi >= from && lo <= to;
+  }
 }
