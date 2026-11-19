@@ -232,6 +232,22 @@
   display: none;                  /* Chrome, Safari */
 }
 
+/*
+  The dark basemap, made rather than fetched.
+
+  These are OpenStreetMap's ordinary pale tiles, inverted and drained of
+  most of their colour. Invert alone gives a lurid negative - grass goes
+  magenta, water goes orange - and the desaturation is what leaves a
+  quiet near-neutral canvas for the price pins to sit on.
+
+  Scoped to Leaflet's tile pane on purpose. Leaflet keeps markers in a
+  separate pane, so filtering the whole map would invert the pins too
+  and turn every blue one orange.
+*/
+.zb-map--dark .leaflet-tile-pane {
+  filter: invert(1) saturate(0.25) brightness(0.95) contrast(0.92);
+}
+
 /* Price pins on the search map (components/search/ListingsMap.tsx). */
 .zb-pin-anchor {
   background: none;

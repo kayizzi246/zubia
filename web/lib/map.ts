@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { MAP_ATTRIBUTION, MAP_STYLE, MAP_TILES } from "@/lib/mapStyle";
+import { MAP_ATTRIBUTION, MAP_TILE_URL } from "@/lib/mapStyle";
 
 /*
   Shared Leaflet settings for every map on the site.
@@ -11,8 +11,8 @@ import { MAP_ATTRIBUTION, MAP_STYLE, MAP_TILES } from "@/lib/mapStyle";
 */
 
 export function addBaseTiles(map: L.Map) {
-  L.tileLayer(MAP_TILES[MAP_STYLE], {
-    attribution: MAP_ATTRIBUTION[MAP_STYLE],
+  L.tileLayer(MAP_TILE_URL, {
+    attribution: MAP_ATTRIBUTION,
     maxZoom: 19,
   }).addTo(map);
 }

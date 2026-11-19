@@ -44,86 +44,109 @@ import 'package:latlong2/latlong.dart' as ll;
 // ═══════════════════════════════════════════════════════════════
 
 enum _MapStyle {
-  /// Near-black land, dark water, almost no colour. Price pins read
-  /// like neon on it, which is the look the big property apps use at
-  /// night. The smallest of the three to download.
+  /// Near-black land, almost no colour. Price pins read like neon on
+  /// it, which is the look the big property apps use at night.
   dark,
 
-  /// Pale grey, almost white. Quiet under a white results sheet.
-  light,
-
   /// OpenStreetMap's own palette — green parks, yellow trunk roads.
-  /// The most legible as a map and the busiest behind pins, so it is
-  /// the one style that gets muted (see _mapFilter).
+  /// The most legible as a map and the busiest behind pins.
   standard,
 }
 
 /// The one line to change.
 const _MapStyle _mapStyle = _MapStyle.dark;
 
-String get _tileUrl => switch (_mapStyle) {
-      _MapStyle.dark =>
-        'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      _MapStyle.light =>
-        'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      _MapStyle.standard => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    };
+/*
+  OpenStreetMap's own tiles, for both styles.
 
-/// Credit for whoever drew the tiles. Both of these are a licence
-/// requirement, not decoration: the data is OpenStreetMap's and the
-/// dark and light styles are CARTO's.
-///
-/// Whatever you switch the style to, the credit has to switch with it.
-String get _tileCredit => switch (_mapStyle) {
-      _MapStyle.standard => '© OpenStreetMap',
-      _ => '© OpenStreetMap, © CARTO',
-    };
+  There is no second URL here any more. CARTO's dark basemap was used
+  until it began returning a single "API KEY REQUIRED" placeholder for
+  every tile — the request still answers 200 with a valid PNG, which is
+  exactly why a status check did not catch it. Every coordinate came
+  back byte-identical.
 
-/// Both tile sources are free and need no key, and both are aimed at
-/// modest traffic. Before real users arrive, move to your own tile
-/// source or a paid plan, or the tiles will be cut off.
-///
-/// Tiles are the heaviest thing this app downloads. The map opens at
-/// one sensible zoom and the sheet covers most of it on purpose, so an
-/// ordinary search fetches a screen's worth and no more. The dark and
-/// light styles are roughly half the weight of the standard one.
+  So the dark look is made here instead of fetched: the same tiles,
+  inverted and desaturated on the device. No key, no second provider,
+  and nothing to expire.
+
+  Tiles are still the heaviest thing this app downloads. The map opens
+  at one sensible zoom and the sheet covers most of it on purpose, so
+  an ordinary search fetches a screen's worth and no more.
+
+  Before real users arrive, move to your own tile source or a paid
+  plan, or OSM will cut them off.
+*/
+const String _tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+/// Credit for the tiles — a licence requirement, not decoration.
+/// OpenStreetMap only, now that no second party draws them: inverting
+/// someone's tiles on a phone does not make them a new work.
+const String _tileCredit = '© OpenStreetMap';
+
+/// Sent with every tile request, as OSM's policy asks.
 const String _tileAgent = 'ug.zubia.app';
 
 /// Where the map looks when there is nothing to centre on yet.
 const ll.LatLng _kampala = ll.LatLng(0.3476, 32.5825);
 
-/// How much colour the standard OSM style keeps: 0 grey, 1 untouched.
+/// How much colour the tiles keep: 0 grey, 1 untouched.
 ///
-/// Raw OSM tiles are bright, and a green price pin lands on them
-/// invisibly. Muting them is what lets the pins carry the only strong
-/// colour on screen. The dark and light styles are already quiet, so
-/// they are left alone — filtering them again only muddies them.
-const double _mapColour = 0.3;
+/// Raw OSM tiles are bright, and a price pin lands on them invisibly.
+/// Draining the colour is what lets the pins carry the only strong
+/// colour on screen.
+const double _mapColour = 0.25;
 
-/// Lifts the muted tiles toward white so the sheet and the map do not
-/// read as two different greys stacked on each other.
+/// Lifts the muted tiles so the sheet and the map do not read as two
+/// different greys stacked on each other. Unused when inverting.
 const double _mapLift = 18;
 
-/// Null for the styles that need no help. The standard style gets a
-/// saturation matrix with a brightness term in the last column; the
-/// luminance weights are the usual sRGB ones, so grey comes out
-/// neutral rather than tinted.
-ColorFilter? get _mapFilter {
-  if (_mapStyle != _MapStyle.standard) return null;
+/// The filter that makes the map.
+///
+/// Both styles are built from the same saturation matrix, with the sRGB
+/// luminance weights so grey comes out neutral rather than tinted. The
+/// dark one negates every coefficient and offsets by 255, which is an
+/// invert and a desaturation composed into one pass — invert alone
+/// gives a lurid negative where grass is magenta.
+///
+/// Applied to the tile layer only. Filtering the whole map would invert
+/// the pins too and turn every green one magenta.
+ColorFilter get _mapFilter {
   const lr = 0.213, lg = 0.715, lb = 0.072;
   const s = _mapColour;
+
+  // Saturation coefficients. Each row sums to 1, so white stays white
+  // — which is also why the inverted offset below is a clean 255.
+  const rr = lr + (1 - lr) * s, rg = lg - lg * s, rb = lb - lb * s;
+  const gr = lr - lr * s, gg = lg + (1 - lg) * s, gb = lb - lb * s;
+  const br = lr - lr * s, bg = lg - lg * s, bb = lb + (1 - lb) * s;
+
+  if (_mapStyle == _MapStyle.dark) {
+    return const ColorFilter.matrix(<double>[
+      -rr, -rg, -rb, 0, 255,
+      -gr, -gg, -gb, 0, 255,
+      -br, -bg, -bb, 0, 255,
+      0, 0, 0, 1, 0,
+    ]);
+  }
+
   return const ColorFilter.matrix(<double>[
-    lr + (1 - lr) * s, lg - lg * s, lb - lb * s, 0, _mapLift,
-    lr - lr * s, lg + (1 - lg) * s, lb - lb * s, 0, _mapLift,
-    lr - lr * s, lg - lg * s, lb + (1 - lb) * s, 0, _mapLift,
+    rr, rg, rb, 0, _mapLift,
+    gr, gg, gb, 0, _mapLift,
+    br, bg, bb, 0, _mapLift,
     0, 0, 0, 1, 0,
   ]);
 }
 
 /// What shows behind the tiles before they arrive. A white flash under
 /// a dark map is the most obvious way to make loading look broken.
-Color get _mapBackdrop =>
-    _mapStyle == _MapStyle.dark ? const Color(0xFF1B2A24) : _tile;
+///
+/// Written as a switch over every style rather than a test for one, so
+/// adding a style makes this fail to compile until it is given a
+/// backdrop — rather than silently falling through to the pale one.
+Color get _mapBackdrop => switch (_mapStyle) {
+      _MapStyle.dark => const Color(0xFF1F2426),
+      _MapStyle.standard => _tile,
+    };
 
 // ═══════════════════════════════════════════════════════════════
 //  WHERE THE WEB APP LIVES
@@ -1251,23 +1274,15 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
         },
       ),
       children: [
-        // The mute is applied to the tiles only, never to the whole
-        // map: filtering the pins too would wash the price out along
-        // with everything else. Null for the styles that are already
-        // quiet enough.
-        if (_mapFilter case final f?)
-          ColorFiltered(
-            colorFilter: f,
-            child: TileLayer(
-              urlTemplate: _tileUrl,
-              userAgentPackageName: _tileAgent,
-            ),
-          )
-        else
-          TileLayer(
+        // The filter wraps the tiles only, never the whole map:
+        // inverting the pins too would turn every green one magenta.
+        ColorFiltered(
+          colorFilter: _mapFilter,
+          child: TileLayer(
             urlTemplate: _tileUrl,
             userAgentPackageName: _tileAgent,
           ),
+        ),
         MarkerLayer(
           markers: [
             // The chosen pin is built last so it draws over its

@@ -10,52 +10,62 @@
   So the plain values live here and lib/map.ts, which does import
   Leaflet, reads them from this file.
 
-  Kept in step with the phone app's search.dart, which offers the same
-  three styles and defaults to the same one. A basemap is only a URL
-  serving PNG tiles, so matching the two is a matter of using the same
-  address — no library involved.
-
-  TODO(maps): both sources below are free, need no key, and are aimed at
-  modest traffic. Before launch, move to a provider with a production
-  free tier (MapTiler, Mapbox) or self-host, or the tiles will be cut
-  off.
+  Kept in step with the phone app's search.dart, which darkens the same
+  tiles the same way.
 */
 
-export type MapStyle = "dark" | "light" | "standard";
+export type MapStyle = "dark" | "standard";
 
 /**
  * The one line to change.
  *
  * `dark` is the default because a near-black basemap is what makes the
  * price pins carry the only strong colour on screen. On OpenStreetMap's
- * own palette — green parks, yellow trunk roads — a blue pin lands
- * almost invisibly.
+ * own palette — green parks, yellow trunk roads — a pin lands almost
+ * invisibly.
  */
 export const MAP_STYLE: MapStyle = "dark";
 
-export const MAP_TILES: Record<MapStyle, string> = {
-  dark: "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-  light: "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  standard: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-};
-
 /*
-  Credit for whoever drew the tiles — a licence requirement, not
-  decoration. The data is OpenStreetMap's; the dark and light styles are
-  CARTO's work on top of it, so both have to be named.
+  OpenStreetMap's own tiles, for both styles.
 
-  If you change MAP_STYLE, the credit changes with it. Do not hard-code
-  one.
+  There is no second URL here any more. CARTO's dark and light basemaps
+  were used until they began returning a single "API KEY REQUIRED"
+  placeholder for every tile — the request still answers 200 with a
+  valid PNG, which is exactly why a status check did not catch it. Every
+  coordinate came back byte-identical.
+
+  So the dark look is made here instead of fetched: the same OSM tiles,
+  inverted and desaturated in the browser. No key, no second provider,
+  and nothing to expire.
+
+  TODO(maps): OSM's tiles are free and aimed at modest traffic. Before
+  launch, move to a provider with a production free tier (MapTiler,
+  Mapbox) or self-host, or they will be cut off.
 */
-const OSM =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-const CARTO = `${OSM}, &copy; <a href="https://carto.com/attributions">CARTO</a>`;
+export const MAP_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-export const MAP_ATTRIBUTION: Record<MapStyle, string> = {
-  dark: CARTO,
-  light: CARTO,
-  standard: OSM,
-};
+/**
+ * Credit for the tiles — a licence requirement, not decoration.
+ *
+ * OpenStreetMap only, now that no second party draws them. Inverting
+ * someone's tiles in a browser does not make them a new work.
+ */
+export const MAP_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+/**
+ * What turns the pale OSM tiles into a dark map.
+ *
+ * Invert first, then pull most of the colour out: inverting alone gives
+ * a lurid negative where grass is magenta, and the desaturation is what
+ * leaves a quiet near-neutral canvas for the pins to sit on.
+ *
+ * Applied to Leaflet's tile pane only — see .zb-map--dark in
+ * globals.css. Filtering the whole map would inverted the price pins
+ * too, turning the blue ones orange.
+ */
+export const MAP_DARK_CLASS = MAP_STYLE === "dark" ? "zb-map--dark" : "";
 
 /**
  * What shows behind the tiles before they arrive.
@@ -64,4 +74,4 @@ export const MAP_ATTRIBUTION: Record<MapStyle, string> = {
  * loading look broken, so the container is painted to match the style
  * rather than left at the page background.
  */
-export const MAP_BACKDROP = MAP_STYLE === "dark" ? "#0f1b26" : "#eef2f8";
+export const MAP_BACKDROP = MAP_STYLE === "dark" ? "#1f2426" : "#eef2f8";
