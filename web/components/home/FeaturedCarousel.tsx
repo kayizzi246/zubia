@@ -8,51 +8,38 @@ import type { Listing } from "@/lib/types";
 /** Gap between cards, matching the gap-4 on the track. */
 const GAP = 16;
 
-/** How long a page of cards rests before the strip advances, in ms. */
-const PAGE_DELAY = 4500;
-
-/** How long a manual nudge holds the auto-advance off, in ms. */
-const RESUME_DELAY = 6000;
-
+/**
+ * A strip of listings that moves only when someone moves it.
+ *
+ * It used to advance itself every few seconds. It no longer does, and
+ * that removed most of this file: there is no timer, no pausing on
+ * hover, and no second copy of every card to let the loop wrap without
+ * a visible seam.
+ *
+ * Dropping the clones halves the cards in the DOM and the images the
+ * browser asks for, which matters more here than the loop did - these
+ * pages are read on cheap phones over data paid for by the megabyte.
+ *
+ * What is left is a snap-scrolling strip: swipe it, or use the arrows,
+ * which disable themselves at each end so they never look broken.
+ */
 export function FeaturedCarousel({
   listings,
   label,
-  direction = "left",
 }: {
   listings: Listing[];
   /** Names the strip for screen readers; two on a page must differ. */
   label: string;
-  /** Which way the strip advances on its own. */
-  direction?: "left" | "right";
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [held, setHeld] = useState(false);
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // One listing cannot loop, so it just sits there.
-  const loops = listings.length > 1;
-  // Two copies of the strip, so paging can wrap with no visible seam.
-  const items = loops ? [...listings, ...listings] : listings;
-
-  /**
-   * How far the strip travels before it is back on an identical card.
-   *
-   * Measured from the first clone rather than halving scrollWidth, which
-   * would also count the track's own left and right padding.
-   */
-  const loopWidth = useCallback(() => {
-    const track = trackRef.current;
-    const first = track?.firstElementChild as HTMLElement | undefined;
-    const firstClone = track?.children[listings.length] as HTMLElement | undefined;
-    if (!first || !firstClone) return 0;
-    return firstClone.offsetLeft - first.offsetLeft;
-  }, [listings.length]);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
 
   /**
    * One page: as many whole cards as are actually on screen.
    *
-   * Always a whole number of cards, so every rest position lands on a card
-   * edge rather than halfway through one.
+   * Always a whole number of cards, so every rest position lands on a
+   * card edge rather than halfway through one.
    */
   const pageWidth = useCallback(() => {
     const track = trackRef.current;
@@ -63,89 +50,58 @@ export function FeaturedCarousel({
     return perPage * stride;
   }, []);
 
-  /**
-   * Move one page, wrapping first if the step would run off either end.
-   *
-   * The wrap is set instantly and the step animated, so the jump between
-   * identical copies is never seen.
-   */
-  const step = useCallback(
-    (towards: -1 | 1, smooth: boolean) => {
-      const track = trackRef.current;
-      if (!track) return;
-      const page = pageWidth();
-      const span = loopWidth();
-      if (page === 0) return;
+  /** Which arrows still have somewhere to go. */
+  const readEnds = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    // A pixel of slack: fractional scroll positions mean scrollLeft
+    // rarely lands exactly on either bound.
+    setAtStart(track.scrollLeft <= 1);
+    setAtEnd(track.scrollLeft + track.clientWidth >= track.scrollWidth - 1);
+  }, []);
 
-      if (loops && span > 0) {
-        if (towards === 1 && track.scrollLeft + page >= span) {
-          track.scrollLeft -= span;
-        } else if (towards === -1 && track.scrollLeft - page < 0) {
-          track.scrollLeft += span;
-        }
-      }
-
-      track.scrollBy({ left: towards * page, behavior: smooth ? "smooth" : "auto" });
-    },
-    [loops, loopWidth, pageWidth],
-  );
-
-  // A right-drifting strip starts on the second copy, so there is always a
-  // page to its left to step back into.
   useEffect(() => {
     const track = trackRef.current;
-    if (!track || !loops || direction !== "right") return;
-    track.scrollLeft = loopWidth();
-  }, [loops, direction, loopWidth]);
-
-  useEffect(() => {
-    if (!loops || held) return;
-    // Someone who asked their system for less motion gets a strip that
-    // only ever moves when they press an arrow.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const timer = setInterval(
-      () => step(direction === "left" ? 1 : -1, true),
-      PAGE_DELAY,
-    );
-    return () => clearInterval(timer);
-  }, [loops, held, direction, step]);
-
-  useEffect(
-    () => () => {
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    },
-    [],
-  );
+    if (!track) return;
+    readEnds();
+    track.addEventListener("scroll", readEnds, { passive: true });
+    // A narrower window fits fewer cards, which can put a strip that was
+    // mid-way at its end.
+    window.addEventListener("resize", readEnds);
+    return () => {
+      track.removeEventListener("scroll", readEnds);
+      window.removeEventListener("resize", readEnds);
+    };
+  }, [readEnds]);
 
   const nudge = useCallback(
     (towards: -1 | 1) => {
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      step(towards, !reduced);
-      // Give the reader time with the page they asked for.
-      setHeld(true);
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
-      resumeTimer.current = setTimeout(() => setHeld(false), RESUME_DELAY);
+      const track = trackRef.current;
+      const page = pageWidth();
+      if (!track || page === 0) return;
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      track.scrollBy({
+        left: towards * page,
+        behavior: reduced ? "auto" : "smooth",
+      });
     },
-    [step],
+    [pageWidth],
   );
 
   const arrow =
-    "flex size-10 items-center justify-center rounded-full border border-line bg-white text-ink transition-colors hover:border-clay hover:text-clay";
+    "flex size-10 items-center justify-center rounded-full border border-line bg-white text-ink transition-colors hover:border-clay hover:text-clay disabled:cursor-default disabled:border-line disabled:text-subtle/40 disabled:hover:border-line disabled:hover:text-subtle/40";
+
+  // Arrows are pointless when everything already fits.
+  const scrolls = listings.length > 1;
 
   return (
-    <div
-      onMouseEnter={() => setHeld(true)}
-      onMouseLeave={() => setHeld(false)}
-      onFocusCapture={() => setHeld(true)}
-      onBlurCapture={() => setHeld(false)}
-      onTouchStart={() => setHeld(true)}
-      onTouchEnd={() => setHeld(false)}
-    >
+    <div>
       {/*
-        snap-mandatory is what makes a "start" position exist: however the
-        strip is moved - arrow, swipe or the timer - it comes to rest with
-        a card flush to the left edge.
+        snap-mandatory is what makes a "start" position exist: however
+        the strip is moved - arrow or swipe - it comes to rest with a
+        card flush to the left edge.
       */}
       <div
         ref={trackRef}
@@ -153,28 +109,31 @@ export function FeaturedCarousel({
         aria-label={label}
         className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-1"
       >
-        {items.map((listing, i) => {
-          const clone = i >= listings.length;
-          return (
-            <div
-              key={`${listing.id}-${i}`}
-              className="w-[280px] shrink-0 snap-start"
-              // The second copy is scenery: screen readers and the tab
-              // order only ever see each listing once.
-              {...(clone ? { inert: true, "aria-hidden": true } : {})}
-            >
-              <ListingCard listing={listing} anchor={!clone} />
-            </div>
-          );
-        })}
+        {listings.map((listing) => (
+          <div key={listing.id} className="w-[280px] shrink-0 snap-start">
+            <ListingCard listing={listing} anchor />
+          </div>
+        ))}
       </div>
 
-      {loops && (
+      {scrolls && (
         <div className="mt-3 flex justify-end gap-2">
-          <button type="button" onClick={() => nudge(-1)} className={arrow} aria-label={`Previous, ${label}`}>
+          <button
+            type="button"
+            onClick={() => nudge(-1)}
+            className={arrow}
+            disabled={atStart}
+            aria-label={`Previous, ${label}`}
+          >
             <ChevronLeft className="size-[18px]" />
           </button>
-          <button type="button" onClick={() => nudge(1)} className={arrow} aria-label={`Next, ${label}`}>
+          <button
+            type="button"
+            onClick={() => nudge(1)}
+            className={arrow}
+            disabled={atEnd}
+            aria-label={`Next, ${label}`}
+          >
             <ChevronRight className="size-[18px]" />
           </button>
         </div>

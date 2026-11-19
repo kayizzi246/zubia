@@ -151,6 +151,21 @@ export default async function HomePage() {
     .sort((a, b) => a.priceUGX - b.priceUGX)
     .slice(0, RAIL_SIZE);
 
+  affordable.forEach((l) => alreadyShown.add(l.id));
+
+  /*
+    The third rail is the promise the whole product rests on: these are
+    the ones whose title was actually searched at the registry.
+
+    Not filtered by type on purpose. Everything else on this page splits
+    rent from buy from land; this one cuts across all three, because
+    "the papers are in order" is the question every Ugandan buyer and
+    tenant asks regardless of what they are after.
+  */
+  const checked = listings
+    .filter((l) => l.titleChecked && !alreadyShown.has(l.id))
+    .slice(0, RAIL_SIZE);
+
   return (
     <main className="flex-1 bg-white">
       {/*
@@ -262,10 +277,14 @@ export default async function HomePage() {
       </section>
 
       {/*
-        Two rails, not four. Four meant a visitor scrolled past roughly
-        fifty photos before reaching anything they could act on, and a
-        rail nobody reaches is a rail nobody sees. One mixed rail and one
-        priced rail, then the three ways in.
+        Three rails, each answering a different question: what is there,
+        what can I afford, and which of these have papers I can trust.
+        A fourth would push the three ways in below fifty photos, and a
+        rail nobody reaches is a rail nobody sees.
+
+        No rail repeats a listing: two cards with the same id would mean
+        two elements carrying the same anchor id, and #listing-x would
+        stop working.
       */}
       {recommended.length > 0 && (
         <section className="mx-auto max-w-[1500px] px-4 pt-8 md:pt-10">
@@ -287,11 +306,19 @@ export default async function HomePage() {
             blurb="Sorted by monthly rent, lowest first, with the full move-in cost on every card."
             action={{ href: "/search?type=rent", label: "All rentals" }}
           />
-          <FeaturedCarousel
-            listings={affordable}
-            label="Rentals on a budget"
-            direction="right"
+          <FeaturedCarousel listings={affordable} label="Rentals on a budget" />
+        </section>
+      )}
+
+      {checked.length > 0 && (
+        <section className="mx-auto max-w-[1500px] px-4 pt-10 md:pt-12">
+          <SectionHead
+            title="Title checked."
+            accent="Papers in order."
+            blurb="We searched the title at the land registry for each of these - rentals, homes and land alike."
+            action={{ href: "/search?title=1", label: "All title-checked" }}
           />
+          <FeaturedCarousel listings={checked} label="Title checked listings" />
         </section>
       )}
 
