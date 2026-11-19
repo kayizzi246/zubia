@@ -1,10 +1,7 @@
 // Automatic FlutterFlow imports
-import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart'; // Imports other custom widgets
-import '/custom_code/actions/index.dart'; // Imports custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
@@ -41,33 +38,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart' as lg;
 
-/// Opens one of the four tab pages, replacing the current one.
-///
-/// `pushReplacement`, not `push`: tapping Home from Search must land on
-/// Home, not stack a second Home on top of it. Over a few minutes of
-/// tapping, `push` would build a pile of pages the back button then has
-/// to be pressed through one at a time.
-///
-/// Public so the five page widgets can call it; in FlutterFlow they see
-/// it through `custom_code/widgets/index.dart`.
-Future<void> zubiaOpenTab(BuildContext context, int index) {
-  final page = switch (index) {
-    1 => const ZubiaSearch(),
-    2 => const ZubiaSaved(),
-    3 => const ZubiaProfile(),
-    _ => const ZubiaHome(),
-  };
-  return Navigator.of(context).pushReplacement(
-    PageRouteBuilder(
-      pageBuilder: (_, __, ___) => page,
-      // No slide. The pages fade in through their own clearing-glass
-      // animation, and a slide on top of that reads as two transitions.
-      transitionsBuilder: (_, a, __, child) =>
-          FadeTransition(opacity: a, child: child),
-      transitionDuration: const Duration(milliseconds: 180),
-    ),
-  );
-}
+// Switching tabs goes through `ZubiaHome.openTab(context, index)`.
+// It lives on the Home widget rather than here because Home is always
+// present, while this file is optional — it is the only one that needs
+// the liquid_glass_widgets package.
 
 class ZubiaGlassTabBar extends StatefulWidget {
   const ZubiaGlassTabBar({
@@ -169,7 +143,7 @@ class _ZubiaGlassTabBarState extends State<ZubiaGlassTabBar> {
 
   void _fire(int i) {
     if (!mounted) return;
-    zubiaOpenTab(context, i);
+    ZubiaHome.openTab(context, i);
   }
 
   /// Tap a tab: the glass flows to it first, then the page switches.

@@ -25,17 +25,29 @@ four tab pages will not compile.
 
 FlutterFlow → **Settings → App Settings → Pub Dependencies**. Add:
 
+Each custom widget has its own **Dependencies** box. Put the package in
+the box of every widget that needs it.
+
 | Package | Used for | Needed by |
 |---|---|---|
 | `http` | every API call | all five pages |
 | `cached_network_image` | listing photos, cached on disk | home, search, listing, saved |
 | `shared_preferences` | the saved-listing ids | all five pages |
-| `flutter_secure_storage` | the session token | profile |
-| `liquid_glass_widgets: ^1.18.0` | the real glass tab bar | `glass_tab_bar.dart` only |
+| `flutter_secure_storage: ^9.2.2` | the session token | **profile only** |
+| `liquid_glass_widgets: ^1.18.0` | the real glass tab bar | **glass_tab_bar.dart only** |
+
+The first three usually resolve already. The last two are the ones that
+produce `Couldn't resolve the package …` if you skip them:
+
+- **`flutter_secure_storage` goes in `ZubiaProfile`'s box.** It is not
+  interchangeable with `shared_preferences` — see §5.
+- **`liquid_glass_widgets` goes in `ZubiaGlassTabBar`'s box**, and only
+  if you want the shader-based bar. The four pages draw their own glass
+  bar and need no extra package at all, so you can skip that widget
+  entirely. See §7.
 
 `liquid_glass_widgets` needs **Flutter 3.41 or newer**. FlutterFlow 7.2
-ships Flutter 3.47.1, so it resolves — but if your project is pinned to
-an older SDK, see §7 for the one-line way out.
+ships Flutter 3.47.1, so it resolves.
 
 `cached_network_image` matters more than it looks: photos are the
 heaviest thing the app downloads, and data here is paid for by the
@@ -124,34 +136,59 @@ constructor argument that no longer exists.
 
 ### How they reach each other, with no parameters
 
-Everything happens in code. The widgets know each other by name —
-FlutterFlow puts them all in `custom_code/widgets/index.dart`, which is
-already in the header of every file.
+Everything happens in code — but **only through statics on the widget
+classes**, and that detail is not optional.
 
-The two values that have to travel are **public top-level variables**,
-each declared beside the page that reads it:
+FlutterFlow generates `custom_code/widgets/index.dart` as a list of
+`export 'zubia_listing.dart' show ZubiaListing;` lines. The `show` means
+**the widget class is the only thing that crosses from one custom widget
+file to another**. A top-level function or variable is invisible, and the
+build fails with `The setter 'x' isn't defined` / `The method 'x' isn't
+defined`.
 
-| Variable | Declared in | Set by | Read by |
+So everything shared hangs off a class:
+
+| Member | Lives on | Set by | Read by |
 |---|---|---|---|
-| `zubiaListingId` | `listing.dart` | Home, Search, Saved, before navigating | `ZubiaListing` on open |
-| `zubiaSearchType` | `search.dart` | Home's hero pills and its three tiles | `ZubiaSearch` on open |
+| `ZubiaListing.openId` | `listing.dart` | Home, Search, Saved, before navigating | `ZubiaListing` on open |
+| `ZubiaSearch.openType` | `search.dart` | Home's hero pills and its three tiles | `ZubiaSearch` on open |
+| `ZubiaHome.openTab(context, i)` | `home.dart` | every tab bar | — |
 
 ```dart
-zubiaListingId = l.id;
+ZubiaListing.openId = l.id;
 Navigator.of(context).push(
   MaterialPageRoute(builder: (_) => const ZubiaListing()),
 );
 ```
 
-They are public rather than private because a private top-level variable
-belongs to one file only — each page would get its own separate copy and
-the value would never arrive.
+`openTab` lives on `ZubiaHome` rather than on the tab bar because Home is
+always present, while `glass_tab_bar.dart` is optional. It uses
+`pushReplacement`, so tapping Home from Search lands on Home instead of
+stacking a second Home on top of it. Opening a listing uses a plain
+`push`, so the back button returns where you were.
 
-Switching tabs goes through `zubiaOpenTab(context, index)` in
-`glass_tab_bar.dart`, which uses `pushReplacement` so tapping Home from
-Search lands on Home instead of stacking a second Home on top of it.
-Opening a listing uses a plain `push`, so the back button returns to
-where you were.
+### The import header
+
+FlutterFlow writes the header itself, and it only lists files your
+project actually has. A project with no backend configured has no
+`lib/backend/`, so these three lines must **not** be there:
+
+```dart
+import '/backend/backend.dart';              // only with a backend
+import '/backend/schema/structs/index.dart';  // only with a backend
+import '/custom_code/actions/index.dart';     // only with custom actions
+```
+
+Leaving them in gives `Error reading 'lib/backend/backend.dart' (No such
+file or directory)`. The files here ship with only the four lines that
+always exist. If your project does have a backend, let FlutterFlow
+regenerate the header rather than pasting one in.
+
+> **One trap in that header:** `flutter_flow_util.dart` re-exports
+> `package:intl`, which has its own `TextDirection` class. Anything
+> overriding a Flutter method that takes a `TextDirection` must write
+> `ui.TextDirection` or the override is invalid. `_GradientRim.paint`
+> in each file does exactly that.
 
 Each widget draws its own tab bar with its own tab already selected, so
 there is no shared scaffold to build.
@@ -239,22 +276,29 @@ forms would not.
 
 ---
 
-## 7. The real glass tab bar, and how to switch it off
+## 7. The real glass tab bar, which is optional
 
-`glass_tab_bar.dart` is the only widget the others depend on. It draws
-the bar with `liquid_glass_widgets`, so the page genuinely bends and
-shines through it and the selection flows between tabs like liquid.
+**The four tab pages do not need this widget or its package.** Each one
+draws its own glass bar from `BackdropFilter` and a gradient rim. Paste
+the five pages, add nothing, and you have a working app.
 
-Each of the four tab pages carries one line near the top:
+`glass_tab_bar.dart` is the upgrade. It draws the bar with
+`liquid_glass_widgets`, so the page genuinely bends and shines through
+it and the selection flows between tabs like liquid. To switch it on:
 
-```dart
-const bool _trueGlass = true;
-```
+1. add `liquid_glass_widgets: ^1.18.0` to that widget's Dependencies box
+2. paste `glass_tab_bar.dart` in as `ZubiaGlassTabBar`, with the single
+   `activeIndex` (Integer) parameter
+3. in each page's `_tabBar()`, replace the `_Glass(...)` call with
+   `const ZubiaGlassTabBar(activeIndex: N)` — N being that page's tab:
+   0 Home, 1 Search, 2 Saved, 3 Profile
 
-`true` uses `ZubiaGlassTabBar`. `false` falls back to the built-in glass
-bar already in each file — `BackdropFilter` and a gradient rim, no
-package, no shaders. **If the package will not resolve, set that one
-line to `false` in all four pages and everything else keeps working.**
+Each page carries that instruction as a comment above `_tabBar()`.
+
+Nothing references `ZubiaGlassTabBar` until you make step 3, which is
+deliberate: a page that merely *mentions* the class still needs it to
+compile, so the missing package would break all four pages rather than
+none.
 
 Three details worth knowing before you change it:
 

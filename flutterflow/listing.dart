@@ -1,10 +1,7 @@
 // Automatic FlutterFlow imports
-import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart'; // Imports other custom widgets
-import '/custom_code/actions/index.dart'; // Imports custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
@@ -28,15 +25,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ═══════════════════════════════════════════════════════════════
 const String _apiBase = 'http://localhost:3001';
 
-/// Which listing the page shows, e.g. "zb-046".
-///
-/// Set this immediately before opening the page and it is read on the
-/// way in. It exists so the Listing page needs no parameter: Home,
-/// Search and Saved each set it and then navigate.
-///
-/// Public on purpose: in FlutterFlow the other custom widgets see it
-/// through `custom_code/widgets/index.dart`.
-String zubiaListingId = '';
+// The listing to show travels in `ZubiaListing.openId` — a static on
+// the widget class, declared further down.
+//
+// It has to be a static rather than a top-level variable: FlutterFlow
+// generates `custom_code/widgets/index.dart` as a list of
+// `export 'zubia_listing.dart' show ZubiaListing;` lines, so the widget
+// class is the only thing that crosses from one custom widget file to
+// another. A top-level variable is simply not visible, and the build
+// fails with "The setter 'zubiaListingId' isn't defined".
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKENS — identical in home, search, listing, saved and profile.
@@ -153,7 +150,7 @@ class _GradientRim extends BoxBorder {
   void paint(
     Canvas canvas,
     Rect rect, {
-    TextDirection? textDirection,
+    ui.TextDirection? textDirection,
     BoxShape shape = BoxShape.rectangle,
     BorderRadius? borderRadius,
   }) {
@@ -549,10 +546,20 @@ class _SavedStore extends ChangeNotifier {
 /// reach is one most people never reach, and on this page getting
 /// someone in touch with the landlord is the whole point.
 ///
-/// Takes no parameters. It shows [zubiaListingId], which whichever page
-/// was tapped sets just before navigating here.
+/// Takes no parameters. It shows [ZubiaListing.openId], which whichever
+/// page was tapped sets just before navigating here.
 class ZubiaListing extends StatefulWidget {
   const ZubiaListing({super.key, this.width, this.height});
+
+  /// Which listing to show, e.g. "zb-046".
+  ///
+  /// Set it, then navigate:
+  ///
+  ///     ZubiaListing.openId = listing.id;
+  ///     Navigator.of(context).push(
+  ///       MaterialPageRoute(builder: (_) => const ZubiaListing()),
+  ///     );
+  static String openId = '';
 
   /// FlutterFlow fills these in from the canvas when "Width and Height"
   /// is switched on. They are not something to wire up, but the
@@ -591,7 +598,7 @@ class _ZubiaListingState extends State<ZubiaListing> {
     });
 
     try {
-      final data = await _apiGet('/api/v1/listings/$zubiaListingId');
+      final data = await _apiGet('/api/v1/listings/${ZubiaListing.openId}');
       final json = (data['listing'] ?? data) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {

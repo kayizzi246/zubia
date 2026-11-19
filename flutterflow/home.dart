@@ -1,10 +1,7 @@
 // Automatic FlutterFlow imports
-import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart'; // Imports other custom widgets
-import '/custom_code/actions/index.dart'; // Imports custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
@@ -60,13 +57,15 @@ const Cubic _ease = Cubic(0.23, 1, 0.32, 1);
 
 const double _tabBarHeight = 56;
 
-/// true  = the real Apple-style liquid glass bar (the ZubiaGlassTabBar
-///         widget, drawn by the liquid_glass_widgets package).
-/// false = the built-in glass bar below, which needs no package.
-///
-/// Set this to false in all four tab pages if the package will not
-/// compile; nothing else has to change.
-const bool _trueGlass = true;
+// WANT THE REAL LIQUID GLASS BAR?
+//
+// This file draws its own glass bar below, which needs no package.
+// To use the shader-based one instead:
+//   1. add  liquid_glass_widgets: ^1.18.0  to the widget dependencies
+//   2. paste glass_tab_bar.dart in as the ZubiaGlassTabBar widget
+//   3. in _tabBar() below, replace the _Glass(...) call with
+//          const ZubiaGlassTabBar(activeIndex: N)
+//      where N is this page's tab: 0 Home, 1 Search, 2 Saved, 3 Profile
 
 /// Set once per build from the screen width.
 double _ui = 1.0;
@@ -172,7 +171,7 @@ class _GradientRim extends BoxBorder {
   void paint(
     Canvas canvas,
     Rect rect, {
-    TextDirection? textDirection,
+    ui.TextDirection? textDirection,
     BoxShape shape = BoxShape.rectangle,
     BorderRadius? borderRadius,
   }) {
@@ -506,6 +505,39 @@ class _SavedStore extends ChangeNotifier {
 class ZubiaHome extends StatefulWidget {
   const ZubiaHome({super.key, this.width, this.height});
 
+  /// Opens one of the four tab pages, replacing the current one.
+  ///
+  /// A static on this class, not a top-level function: FlutterFlow's
+  /// `custom_code/widgets/index.dart` exports each file with
+  /// `show <WidgetName>`, so a widget class is the only thing another
+  /// custom widget can see. It lives on Home rather than on the glass
+  /// bar because Home is always present, while the glass bar is
+  /// optional.
+  ///
+  /// `pushReplacement`, not `push`: tapping Home from Search must land
+  /// on Home, not stack a second Home on top of it. Over a few minutes
+  /// of tapping, `push` would build a pile of pages the back button
+  /// then has to be pressed through one at a time.
+  static Future<void> openTab(BuildContext context, int index) {
+    final Widget page = switch (index) {
+      1 => const ZubiaSearch(),
+      2 => const ZubiaSaved(),
+      3 => const ZubiaProfile(),
+      _ => const ZubiaHome(),
+    };
+    return Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        // No slide. The pages fade in through their own clearing-glass
+        // animation, and a slide on top of that reads as two
+        // transitions fighting each other.
+        transitionsBuilder: (_, a, __, child) =>
+            FadeTransition(opacity: a, child: child),
+        transitionDuration: const Duration(milliseconds: 180),
+      ),
+    );
+  }
+
   /// FlutterFlow fills these in from the canvas when "Width and Height"
   /// is switched on. They are not something to wire up, but the
   /// constructor has to accept them or saving fails with:
@@ -626,14 +658,14 @@ class _ZubiaHomeState extends State<ZubiaHome> {
   // declared beside the page that reads it.
 
   void _openSearch(String type) {
-    zubiaSearchType = type;
+    ZubiaSearch.openType = type;
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ZubiaSearch()),
     );
   }
 
   void _openListing(String id) {
-    zubiaListingId = id;
+    ZubiaListing.openId = id;
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ZubiaListing()),
     );
@@ -1217,9 +1249,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
   /// widget hard-codes its own.
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
-        builder: (_, __) => _trueGlass
-            ? const ZubiaGlassTabBar(activeIndex: 0)
-            : _Glass(
+        builder: (_, __) => _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
@@ -1251,7 +1281,7 @@ class _ZubiaHomeState extends State<ZubiaHome> {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                zubiaOpenTab(context, index);
+                ZubiaHome.openTab(context, index);
               },
         child: Container(
           height: _tabBarHeight,

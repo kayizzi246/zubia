@@ -1,10 +1,7 @@
 // Automatic FlutterFlow imports
-import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart'; // Imports other custom widgets
-import '/custom_code/actions/index.dart'; // Imports custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
@@ -48,10 +45,15 @@ const Color _clayPale = Color(0xFFFBF1EC);
 const Cubic _ease = Cubic(0.23, 1, 0.32, 1);
 const double _tabBarHeight = 56;
 
-/// true  = the real Apple-style liquid glass bar (the ZubiaGlassTabBar
-///         widget, drawn by the liquid_glass_widgets package).
-/// false = the built-in glass bar below, which needs no package.
-const bool _trueGlass = true;
+// WANT THE REAL LIQUID GLASS BAR?
+//
+// This file draws its own glass bar below, which needs no package.
+// To use the shader-based one instead:
+//   1. add  liquid_glass_widgets: ^1.18.0  to the widget dependencies
+//   2. paste glass_tab_bar.dart in as the ZubiaGlassTabBar widget
+//   3. in _tabBar() below, replace the _Glass(...) call with
+//          const ZubiaGlassTabBar(activeIndex: N)
+//      where N is this page's tab: 0 Home, 1 Search, 2 Saved, 3 Profile
 
 double _ui = 1.0;
 
@@ -147,7 +149,7 @@ class _GradientRim extends BoxBorder {
   void paint(
     Canvas canvas,
     Rect rect, {
-    TextDirection? textDirection,
+    ui.TextDirection? textDirection,
     BoxShape shape = BoxShape.rectangle,
     BorderRadius? borderRadius,
   }) {
@@ -489,7 +491,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
   }
 
   void _openListing(String id) {
-    zubiaListingId = id;
+    ZubiaListing.openId = id;
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ZubiaListing()),
     );
@@ -627,7 +629,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
               const SizedBox(height: 20),
               _Pressable(
                 scale: 0.98,
-                onTap: () => zubiaOpenTab(context, 1),
+                onTap: () => ZubiaHome.openTab(context, 1),
                 child: Container(
                   height: 46,
                   padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -791,9 +793,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
 
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
-        builder: (_, __) => _trueGlass
-            ? const ZubiaGlassTabBar(activeIndex: 2)
-            : _Glass(
+        builder: (_, __) => _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
@@ -827,7 +827,7 @@ class _ZubiaSavedState extends State<ZubiaSaved> {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                zubiaOpenTab(context, index);
+                ZubiaHome.openTab(context, index);
               },
         child: Container(
           height: _tabBarHeight,

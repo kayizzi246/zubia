@@ -1,10 +1,7 @@
 // Automatic FlutterFlow imports
-import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart'; // Imports other custom widgets
-import '/custom_code/actions/index.dart'; // Imports custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
@@ -33,15 +30,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ═══════════════════════════════════════════════════════════════
 const String _apiBase = 'http://localhost:3001';
 
-/// Which listing type the Search page opens on: "rent", "buy" or "land".
-///
-/// Set this immediately before opening the page and it is picked up on
-/// the way in. It exists so Search needs no parameter — Home's hero
-/// pills and its three tiles each set it and then navigate.
-///
-/// Public on purpose: in FlutterFlow the other custom widgets see it
-/// through `custom_code/widgets/index.dart`.
-String zubiaSearchType = 'rent';
+// The listing type Search opens on travels in `ZubiaSearch.openType` —
+// a static on the widget class, declared further down. See the note in
+// listing.dart for why it cannot be a top-level variable.
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKENS — identical in home, search, listing, saved and profile.
@@ -63,10 +54,15 @@ const Color _clayPale = Color(0xFFFBF1EC);
 const Cubic _ease = Cubic(0.23, 1, 0.32, 1);
 const double _tabBarHeight = 56;
 
-/// true  = the real Apple-style liquid glass bar (the ZubiaGlassTabBar
-///         widget, drawn by the liquid_glass_widgets package).
-/// false = the built-in glass bar below, which needs no package.
-const bool _trueGlass = true;
+// WANT THE REAL LIQUID GLASS BAR?
+//
+// This file draws its own glass bar below, which needs no package.
+// To use the shader-based one instead:
+//   1. add  liquid_glass_widgets: ^1.18.0  to the widget dependencies
+//   2. paste glass_tab_bar.dart in as the ZubiaGlassTabBar widget
+//   3. in _tabBar() below, replace the _Glass(...) call with
+//          const ZubiaGlassTabBar(activeIndex: N)
+//      where N is this page's tab: 0 Home, 1 Search, 2 Saved, 3 Profile
 
 double _ui = 1.0;
 
@@ -162,7 +158,7 @@ class _GradientRim extends BoxBorder {
   void paint(
     Canvas canvas,
     Rect rect, {
-    TextDirection? textDirection,
+    ui.TextDirection? textDirection,
     BoxShape shape = BoxShape.rectangle,
     BorderRadius? borderRadius,
   }) {
@@ -612,11 +608,22 @@ class _SavedStore extends ChangeNotifier {
 /// is the price and the move-in cost, which a list shows and a pin
 /// does not.
 ///
-/// Takes no parameters. It opens on [zubiaSearchType], which whoever
-/// navigated here sets first, and works out for itself whether it is the
-/// Search tab or a page that was pushed on top of Home.
+/// Takes no parameters. It opens on [ZubiaSearch.openType], which
+/// whoever navigated here sets first, and works out for itself whether
+/// it is the Search tab or a page pushed on top of Home.
 class ZubiaSearch extends StatefulWidget {
   const ZubiaSearch({super.key, this.width, this.height});
+
+  /// "rent", "buy" or "land". Renting is the default because far more
+  /// people are looking for a room to live in than are buying land.
+  ///
+  /// Set it, then navigate:
+  ///
+  ///     ZubiaSearch.openType = 'buy';
+  ///     Navigator.of(context).push(
+  ///       MaterialPageRoute(builder: (_) => const ZubiaSearch()),
+  ///     );
+  static String openType = 'rent';
 
   /// FlutterFlow fills these in from the canvas when "Width and Height"
   /// is switched on. They are not something to wire up, but the
@@ -631,7 +638,7 @@ class ZubiaSearch extends StatefulWidget {
 
 class _ZubiaSearchState extends State<ZubiaSearch> {
   late _Filters _filters =
-      _Filters(type: zubiaSearchType);
+      _Filters(type: ZubiaSearch.openType);
   final TextEditingController _query = TextEditingController();
 
   List<_Listing> _listings = const [];
@@ -729,7 +736,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
   }
 
   void _openListing(String id) {
-    zubiaListingId = id;
+    ZubiaListing.openId = id;
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ZubiaListing()),
     );
@@ -1181,9 +1188,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
 
   Widget _tabBar() => ListenableBuilder(
         listenable: _SavedStore(),
-        builder: (_, __) => _trueGlass
-            ? const ZubiaGlassTabBar(activeIndex: 1)
-            : _Glass(
+        builder: (_, __) => _Glass(
                 height: _tabBarHeight,
                 radius: _tabBarHeight / 2,
                 blur: 26,
@@ -1215,7 +1220,7 @@ class _ZubiaSearchState extends State<ZubiaSearch> {
             ? null
             : () {
                 HapticFeedback.selectionClick();
-                zubiaOpenTab(context, index);
+                ZubiaHome.openTab(context, index);
               },
         child: Container(
           height: _tabBarHeight,
